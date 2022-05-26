@@ -62,7 +62,7 @@ pub const StateChecker = struct {
         state_checker.history.deinit();
     }
 
-    pub fn check_state(state_checker: *StateChecker, replica: u8) void {
+    pub fn check_state(state_checker: *StateChecker, replica: u8) !void {
         const cluster = @fieldParentPtr(Cluster, "state_checker", state_checker);
 
         const a = state_checker.state_machine_states[replica];
@@ -91,7 +91,7 @@ pub const StateChecker = struct {
                 if (b == StateMachine.hash(state_checker.state, std.mem.asBytes(input))) {
                     const transitions_executed = state_checker.history.get(a).?;
                     if (transitions_executed < state_checker.transitions) {
-                        @panic("replica skipped interim transitions");
+                        return error.ReplicaSkippedInterimTransitions;
                     } else {
                         assert(transitions_executed == state_checker.transitions);
                     }
@@ -120,10 +120,10 @@ pub const StateChecker = struct {
             }
         }
 
-        @panic("replica transitioned to an invalid state");
+        return error.ReplicaTransitionedToInvalidState;
     }
 
-    pub fn convergence(state_checker: *StateChecker) bool {
+    pub fn convergence(state_checker: *StateChecker) !bool {
         const cluster = @fieldParentPtr(Cluster, "state_checker", state_checker);
 
         const a = state_checker.state_machine_states[0];
@@ -133,7 +133,8 @@ pub const StateChecker = struct {
 
         const transitions_executed = state_checker.history.get(a).?;
         if (transitions_executed < state_checker.transitions) {
-            @panic("cluster reached convergence but on a regressed state");
+            // Cluster reached convergence but on a regressed state.
+            return error.ClusterRegressedState;
         } else {
             assert(transitions_executed == state_checker.transitions);
         }

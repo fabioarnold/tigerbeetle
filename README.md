@@ -89,7 +89,7 @@ The [QuickStart](#quickstart) step above will install Zig for you to the root of
 To run TigerBeetle's long-running simulation, called *The VOPR*:
 
 ```bash
-scripts/vopr.sh
+zig/zig build vopr
 ```
 
 *The VOPR* stands for *The Viewstamped Operation Replicator* and was inspired by the movie WarGames, by our love of fuzzing over the years, by [Dropbox's Nucleus testing](https://dropbox.tech/infrastructure/-testing-our-new-sync-engine), and by [FoundationDB's deterministic simulation testing](https://www.youtube.com/watch?v=OJb8A6h9jQQ).

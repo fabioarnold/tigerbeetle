@@ -43,4 +43,40 @@ pub fn build(b: *std.build.Builder) void {
         const test_step = b.step("test", "Run the unit tests");
         test_step.dependOn(&unit_tests.step);
     }
+
+    {
+        const simulator = b.addExecutable("simulator", "src/simulator.zig");
+        simulator.setTarget(target);
+
+        const run_cmd = simulator.run();
+        run_cmd.step.dependOn(&simulator.step);
+
+        if (b.args) |args| {
+            run_cmd.addArgs(args);
+            simulator.setBuildMode(mode);
+        } else {
+            simulator.setBuildMode(.ReleaseSafe);
+        }
+
+        const step = b.step("simulator", "Run the Simulator");
+        step.dependOn(&run_cmd.step);
+    }
+
+    {
+        const vopr = b.addExecutable("vopr", "src/vopr.zig");
+        vopr.setTarget(target);
+
+        const run_cmd = vopr.run();
+        run_cmd.step.dependOn(&vopr.step);
+
+        if (b.args) |args| {
+            run_cmd.addArgs(args);
+            vopr.setBuildMode(mode);
+        } else {
+            vopr.setBuildMode(.ReleaseSafe);
+        }
+
+        const step = b.step("vopr", "Run the Vopr");
+        step.dependOn(&run_cmd.step);
+    }
 }

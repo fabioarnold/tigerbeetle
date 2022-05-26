@@ -180,7 +180,9 @@ pub fn main() !void {
 
         for (cluster.replicas) |*replica, i| {
             replica.tick();
-            cluster.state_checker.check_state(@intCast(u8, i));
+            cluster.state_checker.check_state(@intCast(u8, i)) catch |err| {
+                panic(.correctness, "state checker error: {}", .{err});
+            };
         }
 
         cluster.network.packet_simulator.tick();
@@ -188,7 +190,8 @@ pub fn main() !void {
         for (cluster.clients) |*client| client.tick();
 
         if (cluster.state_checker.transitions == transitions_max) {
-            if (cluster.state_checker.convergence()) break;
+            const converged = cluster.state_checker.convergence() catch break;
+            if (converged) break;
             continue;
         } else {
             assert(cluster.state_checker.transitions < transitions_max);
@@ -208,12 +211,30 @@ pub fn main() !void {
 
     if (cluster.state_checker.transitions < transitions_max) {
         output.err("you can reproduce this failure with seed={}", .{seed});
-        @panic("unable to complete transitions_max before ticks_max");
+        panic(.liveness, "unable to complete transitions_max before ticks_max", .{});
     }
 
-    assert(cluster.state_checker.convergence());
+    const convergence = cluster.state_checker.convergence() catch |err| {
+        panic(.correctness, "state checker convergence error: {}", .{err});
+    };
+    if (!convergence) {
+        panic(.correctness, "cluster did not converge on the same state", .{});
+    }
 
     output.info("\n          PASSED ({} ticks)", .{tick});
+}
+
+pub const ExitCode = enum(u8) {
+    ok = 0,
+    crash = 127, // Any assertion crash will be given an exit code of 127 by default.
+    liveness = 128,
+    correctness = 129,
+};
+
+/// Print an error message and then exit with an exit code.
+fn panic(exit_code: ExitCode, comptime fmt_string: []const u8, args: anytype) noreturn {
+    output.err(fmt_string, args);
+    std.os.exit(@enumToInt(exit_code));
 }
 
 /// Returns true, `p` percent of the time, else false.
@@ -230,7 +251,9 @@ fn args_next(args: *std.process.ArgIterator, allocator: std.mem.Allocator) ?[:0]
 
 fn on_change_replica(replica: *Replica) void {
     assert(cluster.state_machines[replica.replica].state == replica.state_machine.state);
-    cluster.state_checker.check_state(replica.replica);
+    cluster.state_checker.check_state(replica.replica) catch |err| {
+        panic(.correctness, "state checker error: {}", .{err});
+    };
 }
 
 fn send_request(random: std.rand.Random) bool {
@@ -295,7 +318,7 @@ fn random_partition_mode(random: std.rand.Random) PartitionMode {
     return @intToEnum(PartitionMode, enumAsInt);
 }
 
-fn parse_seed(bytes: []const u8) u64 {
+pub fn parse_seed(bytes: []const u8) u64 {
     return std.fmt.parseUnsigned(u64, bytes, 10) catch |err| switch (err) {
         error.Overflow => @panic("seed exceeds a 64-bit unsigned integer"),
         error.InvalidCharacter => @panic("seed contains an invalid character"),
