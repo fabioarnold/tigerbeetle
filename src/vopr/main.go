@@ -71,7 +71,7 @@ type vopr_output struct {
 func (output *vopr_output) extract_stack_trace(message *vopr_message) {
 	// The stack trace begins on the first line that starts with neither a square bracket nor
 	// white space.
-	address_regexpr := regexp.MustCompile(`(^([^\[\s]))|(\n([^\[\s]))`)
+	address_regexpr := regexp.MustCompile(`(\n([^\[\s]))`)
 	index := address_regexpr.FindIndex(output.logs)
 	// If an instance is found then the index returns an int array containing the start and end
 	// index for the match
@@ -299,7 +299,7 @@ func process(message vopr_message) {
 	var output vopr_output
 	bug_detected := run_vopr(message.seed, &output, message.hash[:])
 	if ! bug_detected {
-		error_message := fmt.Sprintf("The VOPR unexpectedly passed.")
+		error_message := fmt.Sprintf("The VOPR unexpectedly passed")
 		log_error(error_message, message.hash[:])
 		return
 	}
