@@ -36,7 +36,7 @@ const LENGTH_OF_VOPR_MESSAGE = 29
 const MAX_GITHUB_ISSUE_SIZE = 60000
 
 var debug_mode bool
-var max_length_of_vopr_output = 8 * math.Pow(2, 20)
+var max_length_of_vopr_output = 8 * math.Pow(2, 25)
 var tigerbeetle_directory string
 var issue_directory string
 var developer_token string
@@ -297,7 +297,12 @@ func process(message vopr_message) {
 	}
 
 	var output vopr_output
-	run_vopr(message.seed, &output, message.hash[:])
+	bug_detected := run_vopr(message.seed, &output, message.hash[:])
+	if ! bug_detected {
+		error_message := fmt.Sprintf("The VOPR unexpectedly passed.")
+		log_error(error_message, message.hash[:])
+		return
+	}
 
 	output.extract_stack_trace(&message)
 	output.parse_stack_trace(&message)
@@ -432,7 +437,8 @@ func checkout_commit(commit string, message_hash []byte) error {
 }
 
 // The VOPR is run from the TigerBeetle directory and its output is captured.
-func run_vopr(seed uint64, output *vopr_output, message_hash []byte) {
+func run_vopr(seed uint64, output *vopr_output, message_hash []byte) bool {
+	var bug_detected bool
 	// Create a limited_buffer to read the VOPR output
 	var vopr_std_err_buffer bytes.Buffer
 	limited_buffer := size_limited_buffer{
@@ -442,51 +448,56 @@ func run_vopr(seed uint64, output *vopr_output, message_hash []byte) {
 	}
 
 	// The channel monitors if the VOPR completes before the maximum output is reached.
-	vopr_completed := make(chan bool)
-
-	vopr_path := tigerbeetle_directory + "/scripts/vopr.sh"
+	vopr_completed := make(chan error)
 
 	// Runs in debug mode
 	log_info("Running the VOPR...", message_hash)
 	cmd := exec.Command(
-		"/bin/bash",
-		vopr_path,
-		fmt.Sprintf("%d", seed),
+		"zig/zig",
+		"build",
+		"vopr",
+		"--",
+		fmt.Sprintf("--seed=%d", seed),
 	)
 	cmd.Dir = tigerbeetle_directory
 	cmd.Stderr = &limited_buffer
 	// Start() runs asynchronously but is used because it allows a process to be killed.
 	error := cmd.Start()
+	if error != nil {
+		log_error("Failed to start the VOPR", message_hash)
+		panic(error.Error())
+	}
 
 	// Wait() runs synchronously. A separate Goroutine is needed to prevent the code from blocking.
 	// The VOPR might end prematurely instead if its output exceeds the maximum space.
 	go func() {
 		result := cmd.Wait()
-		if result == nil {
-			vopr_completed <- true
-		} else {
-			vopr_completed <- false
-		}
+		vopr_completed <- result
 	}()
 
 	// The code blocks until a value is found in either the vopr_completed or size_reached channel.
 	select {
 	case result := <-vopr_completed:
-		if result {
-			log_message := fmt.Sprintf("The VOPR has completed with error: %v", error)
+		if result != nil {
+			bug_detected = true
+			log_message := fmt.Sprintf("The VOPR has completed with a crash or correctness bug.")
 			log_info(log_message, message_hash)
 		} else {
-			log_info("The VOPR completed", message_hash)
+			log_info("The VOPR completed successfully", message_hash)
+			bug_detected = false
 		}
 	case max_size := <-limited_buffer.size_reached:
 		if max_size {
 			cmd.Process.Kill()
 		}
-		log_info("The VOPR has completed", message_hash)
+		log_info("The VOPR has completed with a liveness bug", message_hash)
+		bug_detected = true
 	}
 
 	// All results are stored in the output.logs byte array
 	output.logs = limited_buffer.buffer.Bytes()
+
+	return bug_detected;
 }
 
 // Writes the debug logs and parsed stack trace to a file on disk.

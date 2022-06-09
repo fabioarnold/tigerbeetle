@@ -1,0 +1,64 @@
+ssh root@65.21.207.251
+
+# copy files and folders between local machine and server
+scp folder/file root@65.21.207.251:/folder/file #requires absolute path, use -R for folders
+
+git clone...
+
+./scripts/install_zig.sh
+
+sudo add-apt-repository ppa:longsleep/golang-backports
+sudo apt update
+sudo apt install golang-go
+
+systemd has timers - similar to cron job - so maybe we want to use that for the cron job.
+systemd stop services and do update and thensystemd start services. 
+
+create a service, separate binary, a shell script that accepts special arguments
+zig/zig build vopr
+git pull - how long - once an hour?
+
+how long to do the 1000seeds, probably gonna be 10X longer 
+Bring down max ticks 
+Rather combine timer into service so part of loop, do update at the end of the loop, don't lose a seed. Also removes a level of concurrency.
+
+/etc/systemd/service/vopr.service 
+Check status with sudo systemctl status vopr.service
+start with sudo systemctl start vopr.service
+
+look at journalctl tool to veiw logs properly
+Run top to see what's going on in the system
+to stop sudo systemctl stop vopr.service
+
+sudo adduser voprhub
+sudo adduser voprrunner
+sudo usermod -aG sudo voprhub
+sudo usermod -aG sudo voprrunner
+
+sudo -i (if you have sudo privileges you can become root like this. You need to be root before you can switch users)
+
+Change users with su - voprhub
+in /home/voprhub git clone tigerbeetle, mkdir hub, cd hub, clone tigerbeetle again
+
+exit to go back to root
+su - voprrunner
+git clone tigerbeetle
+exit to go back to root user
+
+Need to cat your service setup file which you created with nano
+[Unit]
+
+Description=Continously runs the VOPR and pulls the lastest TigerBeetle code.
+
+[Service]
+
+User=sarah
+WorkingDirectory=/home/sarah/tigerbeetle
+ExecStart=/home/sarah/tigerbeetle/zig/zig build vopr
+Restart=always
+
+[Install]
+
+WantedBy=multi-user.target
+
+This was written with nano vopr.service
