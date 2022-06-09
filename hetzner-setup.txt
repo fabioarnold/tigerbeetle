@@ -22,9 +22,9 @@ how long to do the 1000seeds, probably gonna be 10X longer
 Bring down max ticks 
 Rather combine timer into service so part of loop, do update at the end of the loop, don't lose a seed. Also removes a level of concurrency.
 
-/etc/systemd/service/vopr.service 
+/etc/systemd/system/vopr.service 
 Check status with sudo systemctl status vopr.service
-start with sudo systemctl start vopr.service
+start with sudo systemctl start vopr.service - must ensure correct branch is checked out in git
 
 look at journalctl tool to veiw logs properly
 Run top to see what's going on in the system
@@ -46,19 +46,48 @@ git clone tigerbeetle
 exit to go back to root user
 
 Need to cat your service setup file which you created with nano
+```
 [Unit]
 
-Description=Continously runs the VOPR and pulls the lastest TigerBeetle code.
+Description=Continously runs the VOPR.
 
 [Service]
 
-User=sarah
-WorkingDirectory=/home/sarah/tigerbeetle
-ExecStart=/home/sarah/tigerbeetle/zig/zig build vopr
+User=voprrunner
+WorkingDirectory=/home/voprrunner/tigerbeetle
+ExecStart=/home/voprrunner/tigerbeetle/zig/zig build vopr -- --send="65.21.207.251:5555"
 Restart=always
 
 [Install]
 
 WantedBy=multi-user.target
+```
 
 This was written with nano vopr.service
+
+See man systemd for more info also systemd.unit and systemd.service
+Perhaps restart should be set to on-success instead?
+
+```
+[Unit]
+
+Description=Continously runs the VOPR Hub.
+
+[Service]
+
+User=voprhub
+WorkingDirectory=/home/voprhub/hub/tigerbeetle/src/vopr
+Environment="REPOSITORY_URL=https://api.github.com/repos/SarahNerdyBird/Go/issues"
+Environment="TIGERBEETLE_DIRECTORY=/home/voprhub/tigerbeetle"
+Environment="VOPR_HUB_ADDRESS=65.21.207.251:5555"
+Environment="ISSUE_DIRECTORY=/home/voprhub"
+Environment="DEVELOPER_TOKEN=******"
+ExecStart=go run main.go
+Restart=always
+
+[Install]
+
+WantedBy=multi-user.target
+```
+
+Build tigerbeetle%i into working directory - then only need one systemd configuration

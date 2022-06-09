@@ -63,7 +63,7 @@ pub fn main() !void {
     const client_count = 1 + random.uintLessThan(u8, config.clients_max);
     const node_count = replica_count + client_count;
 
-    const ticks_max = 100_000_000;
+    const ticks_max = 50_000_000;
     const transitions_max = config.journal_size_max / config.message_size_max;
     const request_probability = 1 + random.uintLessThan(u8, 99);
     const idle_on_probability = random.uintLessThan(u8, 20);

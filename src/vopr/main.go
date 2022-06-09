@@ -541,6 +541,7 @@ func create_github_issue(message vopr_message, output *vopr_output, issue_file_n
 		log_error("Failed to send the HTTP request for the GitHub API", message.hash[:])
 		panic(error.Error())
 	}
+	// TODO inspect post_response statusCode, 200-2009 success, otherwise log the error
 	defer post_response.Body.Close()
 	log_info("GitHub issue has been created", message.hash[:])
 }
