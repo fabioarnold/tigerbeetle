@@ -8,8 +8,7 @@ const assert = std.debug.assert;
 const simulator = @import("simulator.zig");
 const vsr = @import("vsr.zig");
 
-// TODO set real default address.
-const default_send_address = net.Address.initIp4([4]u8{ 127, 0, 0, 1 }, 5555);
+const default_send_address = net.Address.initIp4([4]u8{ 65, 21, 207, 251 }, 5555);
 
 const usage = fmt.comptimePrint(
     \\Usage:
@@ -39,10 +38,15 @@ const usage = fmt.comptimePrint(
     \\        By default when a seed is provided the VOPR will run in Debug mode.
     \\        Debug mode is only a valid build mode if a seed is also provided.
     \\
+    \\  --simulations=<integer>
+    \\        Set the number of times for the simulator to run when using randomly generated seeds.
+    \\        By default 1000 random seeds will be generated.
+    \\        This flag can only be used with ReleaseSafe mode and when no seed has been specified.
+    \\
     \\Example:
     \\
     \\  vopr --seed=123 --send=127.0.0.1:5555 --build-mode=ReleaseSafe
-    \\  vopr --seed=456 --send --build-mode=Debug
+    \\  vopr --simulations=10 --send --build-mode=Debug
     \\
 , .{});
 
@@ -57,6 +61,7 @@ const Flags = struct {
     seed: ?u64,
     send_address: ?net.Address, // A null value indicates that the send fag is not set.
     build_mode: std.builtin.Mode,
+    simulations: u32,
 };
 
 const Bug = enum(u8) {
@@ -91,9 +96,9 @@ pub fn main() void {
     } else if (args.build_mode == .Debug) {
         fatal("no seed provided: the VOPR must be run with --mode=ReleaseSafe", .{});
     } else {
-        // Run the simulator with 1000 randomly generated seeds.
+        // Run the simulator with randomly generated seeds.
         var i: u32 = 0;
-        while (i < 1000) : (i += 1) {
+        while (i < args.simulations) : (i += 1) {
             const seed_random = std.crypto.random.int(u64);
             const exit_code = run_simulator(
                 allocator,
@@ -301,6 +306,7 @@ fn parse_args(allocator: mem.Allocator) !Flags {
         .seed = null,
         .send_address = null,
         .build_mode = .ReleaseSafe,
+        .simulations = 1000,
     };
 
     var args = try std.process.argsWithAllocator(allocator);
@@ -345,6 +351,12 @@ fn parse_args(allocator: mem.Allocator) !Flags {
                     .{arg},
                 );
             }
+        } else if (mem.startsWith(u8, arg, "--simulations")) {
+            const num_simulations_string = parse_flag("--simulations", arg);
+            flags.simulations = std.fmt.parseUnsigned(u32, num_simulations_string, 10) catch |err| switch (err) {
+                error.Overflow => @panic("the number of simulations exceeds a 16-bit unsigned integer"),
+                error.InvalidCharacter => @panic("the number of simulations contains an invalid character"),
+            };
         } else if (mem.eql(u8, arg, "-h") or mem.eql(u8, arg, "--help")) {
             std.io.getStdOut().writeAll(usage) catch os.exit(1);
             os.exit(0);

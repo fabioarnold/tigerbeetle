@@ -91,3 +91,5 @@ WantedBy=multi-user.target
 ```
 
 Build tigerbeetle%i into working directory - then only need one systemd configuration
+
+Dev token has access to public repos only
