@@ -340,10 +340,10 @@ fn parse_args(allocator: mem.Allocator) !Flags {
                 const str_address = parse_flag("--send", arg);
                 flags.send_address = try vsr.parse_address(str_address);
             }
-        } else if (mem.startsWith(u8, arg, "--mode")) {
-            if (mem.eql(u8, parse_flag("--mode", arg), "ReleaseSafe")) {
+        } else if (mem.startsWith(u8, arg, "--build-mode")) {
+            if (mem.eql(u8, parse_flag("--build-mode", arg), "ReleaseSafe")) {
                 flags.build_mode = .ReleaseSafe;
-            } else if (mem.eql(u8, parse_flag("--mode", arg), "Debug")) {
+            } else if (mem.eql(u8, parse_flag("--build-mode", arg), "Debug")) {
                 flags.build_mode = .Debug;
             } else {
                 fatal(
