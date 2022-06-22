@@ -93,3 +93,7 @@ WantedBy=multi-user.target
 Build tigerbeetle%i into working directory - then only need one systemd configuration
 
 Dev token has access to public repos only
+
+zig was installed in /usr/local/lib/zig
+Use a symlink in each tigerbeetle directory to point to /usr/local/lib/zig (ln -s /usr/local/lib/zig)
+The reason for using the symlink to the global install is that there is now one place to update everything but the zig/zig commands still work in all tigerbeetle directories.
