@@ -305,7 +305,7 @@ fn parse_args(allocator: mem.Allocator) !Flags {
     var flags = Flags{
         .seed = null,
         .send_address = null,
-        .build_mode = .ReleaseSafe,
+        .build_mode = undefined,
         .simulations = 1000,
     };
 
@@ -331,7 +331,9 @@ fn parse_args(allocator: mem.Allocator) !Flags {
             const seed_string = parse_flag("--seed", arg);
             flags.seed = simulator.parse_seed(seed_string);
             // If a seed is supplied Debug becomes the default mode.
-            flags.build_mode = .Debug;
+            if (flags.build_mode == undefined) {
+                flags.build_mode = .Debug;
+            }
         } else if (mem.startsWith(u8, arg, "--send")) {
             if (mem.eql(u8, arg, "--send")) {
                 // If --send is set and no address is supplied then use default address
@@ -365,6 +367,12 @@ fn parse_args(allocator: mem.Allocator) !Flags {
         } else {
             fatal("unexpected argument: '{s}' (must start with '--')", .{arg});
         }
+    }
+
+    // Build mode is set last to ensure that if a seed is passed to the VOPR the Debug default
+    // doesn't override a user specified mode.
+    if (flags.build_mode == undefined) {
+        flags.build_mode = .ReleaseSafe;
     }
 
     if (flags.seed == null and flags.build_mode != .ReleaseSafe) {
