@@ -67,6 +67,18 @@ type vopr_output struct {
 	parameters       string
 }
 
+// Checks if the simulator passed or the bug was confirmed.
+func (output *vopr_output) test_passed() bool {
+	passed_regexpr := regexp.MustCompile(`PASSED`)
+	index := passed_regexpr.FindIndex(output.logs)
+	// If the word PASSED is found then the bug sent to the VOPR Hub has not been confirmed.
+	// index for the match
+	if len(index) == 2 {
+		return true
+	}
+	return false
+}
+
 // The stack trace is moved from output.logs into output.stack_trace.
 func (output *vopr_output) extract_stack_trace(message *vopr_message) {
 	// The stack trace begins on the first line that starts with neither a square bracket nor
@@ -297,10 +309,9 @@ func process(message vopr_message) {
 	}
 
 	var output vopr_output
-	bug_detected := run_vopr(message.seed, &output, message.hash[:])
-	if ! bug_detected {
-		error_message := fmt.Sprintf("The VOPR unexpectedly passed")
-		log_error(error_message, message.hash[:])
+	run_vopr(message.seed, &output, message.hash[:])
+	if output.test_passed() {
+		log_error("The VOPR unexpectedly passed", message.hash[:])
 		return
 	}
 
@@ -444,8 +455,7 @@ func checkout_commit(commit string, message_hash []byte) error {
 }
 
 // The VOPR is run from the TigerBeetle directory and its output is captured.
-func run_vopr(seed uint64, output *vopr_output, message_hash []byte) bool {
-	var bug_detected bool
+func run_vopr(seed uint64, output *vopr_output, message_hash []byte) {
 	// Create a limited_buffer to read the VOPR output
 	var vopr_std_err_buffer bytes.Buffer
 	limited_buffer := size_limited_buffer{
@@ -486,25 +496,19 @@ func run_vopr(seed uint64, output *vopr_output, message_hash []byte) bool {
 	select {
 	case result := <-vopr_completed:
 		if result != nil {
-			bug_detected = true
-			log_message := fmt.Sprintf("The VOPR has completed with a crash or correctness bug.")
-			log_info(log_message, message_hash)
+			log_error("The VOPR did not complete successfully", message_hash)
 		} else {
 			log_info("The VOPR completed successfully", message_hash)
-			bug_detected = false
 		}
 	case max_size := <-limited_buffer.size_reached:
 		if max_size {
 			cmd.Process.Kill()
 		}
 		log_info("The VOPR has completed with a liveness bug", message_hash)
-		bug_detected = true
 	}
 
 	// All results are stored in the output.logs byte array
 	output.logs = limited_buffer.buffer.Bytes()
-
-	return bug_detected;
 }
 
 // Writes the debug logs and parsed stack trace to a file on disk.
@@ -566,9 +570,9 @@ func create_github_issue(message vopr_message, output *vopr_output, issue_file_n
 			"GitHub issue has been created. Received StatusCode: %d and Status: %s.",
 			post_response.StatusCode,
 			post_response.Status,
-			),
-			message.hash[:],
-		)
+		),
+		message.hash[:],
+	)
 	return nil
 }
 
@@ -811,8 +815,8 @@ func main() {
 				error.Error(),
 			)
 			log_error(error_message, nil)
-			connection.Close();
-			continue;
+			connection.Close()
+			continue
 		}
 
 		select {
