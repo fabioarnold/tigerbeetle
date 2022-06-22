@@ -311,7 +311,7 @@ func process(message vopr_message) {
 	var output vopr_output
 	run_vopr(message.seed, &output, message.hash[:])
 	if output.test_passed() {
-		log_error("The VOPR unexpectedly passed", message.hash[:])
+		log_error("The seed unexpectedly passed", message.hash[:])
 		return
 	}
 
