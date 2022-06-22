@@ -318,7 +318,14 @@ func process(message vopr_message) {
 	// Saves report to disk
 	create_issue_file(issue_file_name, &output, message.hash[:])
 
-	create_github_issue(message, &output, issue_file_name)
+	err := create_github_issue(message, &output, issue_file_name)
+	if err != nil {
+		log_error(
+			"Failed to create GitHub issue.",
+			message.hash[:],
+		)
+		return
+	}
 }
 
 // Checks if a duplicate issue has already been submitted.
@@ -515,7 +522,7 @@ func create_issue_file(issue_file_name string, output *vopr_output, message_hash
 }
 
 // Submits a GitHub issue that includes the debug logs and parsed stack trace.
-func create_github_issue(message vopr_message, output *vopr_output, issue_file_name string) {
+func create_github_issue(message vopr_message, output *vopr_output, issue_file_name string) error {
 	body := create_issue_markdown(message, output)
 	// Removes the file path from the name.
 	issue_file_name = strings.Replace(issue_file_name, issue_directory+"/", "", 1)
@@ -541,9 +548,28 @@ func create_github_issue(message vopr_message, output *vopr_output, issue_file_n
 		log_error("Failed to send the HTTP request for the GitHub API", message.hash[:])
 		panic(error.Error())
 	}
-	// TODO inspect post_response statusCode, 200-2009 success, otherwise log the error
+
 	defer post_response.Body.Close()
-	log_info("GitHub issue has been created", message.hash[:])
+
+	if post_response.StatusCode < 200 || post_response.StatusCode > 299 {
+		error_message := fmt.Sprintf(
+			"Received a non 2xx status code from GitHub. StatusCode: %d. Status: %s",
+			post_response.StatusCode,
+			post_response.Status,
+		)
+		log_error(error_message, message.hash[:])
+		return fmt.Errorf(error_message)
+	}
+
+	log_info(
+		fmt.Sprintf(
+			"GitHub issue has been created. Received StatusCode: %d and Status: %s.",
+			post_response.StatusCode,
+			post_response.Status,
+			),
+			message.hash[:],
+		)
+	return nil
 }
 
 // Creates the string that forms the body of the GitHub issue.
