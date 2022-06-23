@@ -99,3 +99,34 @@ Use a symlink in each tigerbeetle directory to point to /usr/local/lib/zig (ln -
 The reason for using the symlink to the global install is that there is now one place to update everything but the zig/zig commands still work in all tigerbeetle directories.
 
 Shortened machine name simply to Ubuntu using nano /etc/hostname
+
+Get multiple VOPRs running named vopr@.service - TODO remove old vopr.service file
+create file nano /etc/systemd/system/voprs.service
+```
+[Unit]
+Description=Continously runs the VOPR.
+PartOf=vopr.target
+
+[Service]
+
+User=voprrunner
+WorkingDirectory=/home/voprrunner/tigerbeetle%i
+ExecStart=/home/voprrunner/tigerbeetle%i/zig/zig build vopr -- --send="65.21.207.251:5555"
+Restart=always
+
+[Install]
+
+WantedBy=multi-user.target
+```
+
+Create three of those tigerbeetle1 etc. Then put them up with systemctl start vopr@1.service etc
+
+Then create a target file to manage all instances called vopr.target
+```
+[Unit]
+Description=Runs all VOPR services.
+Requires=vopr@1.service vopr@2.service vopr@3.service
+
+[Install]
+WantedBy=multi-user.target
+```
