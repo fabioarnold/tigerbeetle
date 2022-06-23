@@ -313,12 +313,10 @@ fn parse_flag(comptime flag: []const u8, arg: [:0]const u8) [:0]const u8 {
 // Parses the VOPR arguments to set flag values, otherwise uses default flag values.
 fn parse_args(allocator: mem.Allocator) !Flags {
     // Set default values
-    var flags = Flags{
-        .seed = null,
-        .send_address = null,
-        .build_mode = undefined,
-        .simulations = 1000,
-    };
+    var seed: ?u64 = null;
+    var send_address: ?net.Address = null;
+    var build_mode: ?std.builtin.Mode = null;
+    var simulations: u32 = 1000;
 
     var args = try std.process.argsWithAllocator(allocator);
     defer args.deinit();
@@ -340,24 +338,24 @@ fn parse_args(allocator: mem.Allocator) !Flags {
 
         if (mem.startsWith(u8, arg, "--seed")) {
             const seed_string = parse_flag("--seed", arg);
-            flags.seed = simulator.parse_seed(seed_string);
+            seed = simulator.parse_seed(seed_string);
             // If a seed is supplied Debug becomes the default mode.
-            if (flags.build_mode == undefined) {
-                flags.build_mode = .Debug;
+            if (build_mode == null) {
+                build_mode = .Debug;
             }
         } else if (mem.startsWith(u8, arg, "--send")) {
             if (mem.eql(u8, arg, "--send")) {
                 // If --send is set and no address is supplied then use default address
-                flags.send_address = default_send_address;
+                send_address = default_send_address;
             } else {
                 const str_address = parse_flag("--send", arg);
-                flags.send_address = try vsr.parse_address(str_address);
+                send_address = try vsr.parse_address(str_address);
             }
         } else if (mem.startsWith(u8, arg, "--build-mode")) {
             if (mem.eql(u8, parse_flag("--build-mode", arg), "ReleaseSafe")) {
-                flags.build_mode = .ReleaseSafe;
+                build_mode = .ReleaseSafe;
             } else if (mem.eql(u8, parse_flag("--build-mode", arg), "Debug")) {
-                flags.build_mode = .Debug;
+                build_mode = .Debug;
             } else {
                 fatal(
                     "unsupported build mode: {s}. Use either ReleaseSafe or Debug mode.",
@@ -366,7 +364,7 @@ fn parse_args(allocator: mem.Allocator) !Flags {
             }
         } else if (mem.startsWith(u8, arg, "--simulations")) {
             const num_simulations_string = parse_flag("--simulations", arg);
-            flags.simulations = std.fmt.parseUnsigned(u32, num_simulations_string, 10) catch |err| switch (err) {
+            simulations = std.fmt.parseUnsigned(u32, num_simulations_string, 10) catch |err| switch (err) {
                 error.Overflow => @panic("the number of simulations exceeds a 16-bit unsigned integer"),
                 error.InvalidCharacter => @panic("the number of simulations contains an invalid character"),
             };
@@ -382,13 +380,18 @@ fn parse_args(allocator: mem.Allocator) !Flags {
 
     // Build mode is set last to ensure that if a seed is passed to the VOPR the Debug default
     // doesn't override a user specified mode.
-    if (flags.build_mode == undefined) {
-        flags.build_mode = .ReleaseSafe;
+    if (build_mode == null) {
+        build_mode = .ReleaseSafe;
     }
 
-    if (flags.seed == null and flags.build_mode != .ReleaseSafe) {
+    if (seed == null and build_mode.? != .ReleaseSafe) {
         fatal("random seeds must be run in ReleaseSafe mode.", .{});
     }
 
-    return flags;
+    return Flags{
+        .seed = seed,
+        .send_address = send_address,
+        .build_mode = build_mode.?,
+        .simulations = simulations,
+    };
 }
