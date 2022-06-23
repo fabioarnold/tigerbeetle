@@ -196,7 +196,7 @@ fn run_child_process(allocator: mem.Allocator, argv: []const []const u8) u8 {
                 },
                 else => {
                     fatal("the simulator exited without an unexpected signal. Term: {}\n", .{term});
-                }
+                },
             }
         },
         else => {
