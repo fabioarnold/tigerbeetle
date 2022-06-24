@@ -154,14 +154,14 @@ fn run_simulator(
     };
 
     if (result) |bug| {
+        if (send_address) |hub_address| {
+            send_report(allocator, hub_address, bug, seed);
+        }
+
         if (mode == .ReleaseSafe) {
             std.debug.print("simulator exited with exit code {}.\n", .{@enumToInt(bug)});
             std.debug.print("rerunning seed {} in Debug mode.\n", .{seed});
-            assert(bug == run_simulator(allocator, seed, .Debug, send_address).?);
-        } else {
-            if (send_address) |hub_address| {
-                send_report(allocator, hub_address, bug, seed);
-            }
+            assert(bug == run_simulator(allocator, seed, .Debug, null).?);
         }
     }
     return result;
