@@ -65,6 +65,7 @@ type vopr_output struct {
 	stack_trace      []byte
 	stack_trace_hash string
 	parameters       string
+	seed_passed      bool
 }
 
 // Checks if the simulator passed or the bug was confirmed.
@@ -178,7 +179,11 @@ func (limited_buffer *size_limited_buffer) Write(byte_array []byte) (int, error)
 
 // Reads incoming messages (ensuring that only the correct number of bytes are read), decodes and
 // validates them before adding the messages to the vopr_message_channel.
-func handle_connection(track_connections chan bool, connection net.Conn, vopr_message_channel chan vopr_message) {
+func handle_connection(
+	track_connections chan bool,
+	connection net.Conn,
+	vopr_message_channel chan vopr_message,
+) {
 	// When this function completes, close the connection and decrement the connections count.
 	defer func() {
 		connection.Close()
@@ -188,7 +193,7 @@ func handle_connection(track_connections chan bool, connection net.Conn, vopr_me
 
 	var input vopr_message_byte_array
 
-	// If too few bytes were sent the read will timeout because a read deadline was set on the connection.
+	// If too few bytes were sent then the connection's read deadline will timeout.
 	total_bytes_read := 0
 	for total_bytes_read < LENGTH_OF_VOPR_MESSAGE {
 		bytes_read, error := connection.Read(input[total_bytes_read:])
@@ -312,7 +317,9 @@ func process(message vopr_message) {
 	run_vopr(message.seed, &output, message.hash[:])
 	if output.test_passed() {
 		log_error("The seed unexpectedly passed", message.hash[:])
-		return
+		output.seed_passed = true
+	} else {
+		output.seed_passed = false
 	}
 
 	output.extract_stack_trace(&message)
@@ -528,6 +535,9 @@ func create_issue_file(issue_file_name string, output *vopr_output, message_hash
 // Submits a GitHub issue that includes the debug logs and parsed stack trace.
 func create_github_issue(message vopr_message, output *vopr_output, issue_file_name string) error {
 	body := create_issue_markdown(message, output)
+	if output.seed_passed {
+		body = "Note this seed passed when it was rerun by the VOPR Hub.<br>" + body
+	}
 	// Removes the file path from the name.
 	issue_file_name = strings.Replace(issue_file_name, issue_directory+"/", "", 1)
 	issue_contents := fmt.Sprintf(
@@ -600,7 +610,9 @@ func create_issue_markdown(message vopr_message, output *vopr_output) string {
 			remaining_space -= length_of_stack_trace
 		} else {
 			// If the stack trace is too large then just capture the beginning of it.
-			stack_trace = make_markdown_compatible(string(output.stack_trace[:MAX_GITHUB_ISSUE_SIZE-4]))
+			stack_trace = make_markdown_compatible(
+				string(output.stack_trace[:MAX_GITHUB_ISSUE_SIZE-4]),
+			)
 			stack_trace += "..."
 			remaining_space = 0
 		}
@@ -823,7 +835,10 @@ func main() {
 		case track_connections <- true:
 			go handle_connection(track_connections, connection, vopr_message_channel)
 		default:
-			log_info("Connection closed because there are currently too many open connections", nil)
+			log_info(
+				"Connection closed because there are currently too many open connections",
+				nil,
+			)
 			connection.Close()
 		}
 	}
