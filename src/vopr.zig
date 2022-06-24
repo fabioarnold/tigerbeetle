@@ -80,6 +80,10 @@ pub fn main() void {
         fatal("unable to parse the VOPR's arguments: {}", .{err});
     };
 
+    if (args.send_address != null) {
+        check_git_status(allocator);
+    }
+
     // If a seed is provided as an argument then replay the seed, otherwise test a 1,000 seeds:
     if (args.seed) |seed| {
         // Build in fast ReleaseSafe mode if required, useful where you don't need debug logging:
@@ -202,6 +206,26 @@ fn run_child_process(allocator: mem.Allocator, argv: []const []const u8) u8 {
         else => {
             fatal("the simulator exited without an exit code. Term: {}\n", .{term});
         },
+    }
+}
+
+fn check_git_status(allocator: mem.Allocator) void {
+    // Running git status to determine whether there is any uncommitted code or local changes.
+    var args = [2][]const u8{ "git", "status" };
+    var exec_result = std.ChildProcess.exec(.{
+        .allocator = allocator,
+        .argv = &args,
+    }) catch |err| {
+        fatal("unable to determine TigerBeetle's git status. Error: {}", .{err});
+    };
+
+    var git_status = exec_result.stdout;
+    if (mem.containsAtLeast(u8, git_status, 1, "nothing to commit, working tree clean") and
+        !mem.containsAtLeast(u8, git_status, 1, "Your branch is ahead of"))
+    {
+        std.debug.print("All code has been committed and pushed.", .{});
+    } else {
+        fatal("the VOPR cannot be run with the --send flag when your branch is ahead or there is uncommited code", .{});
     }
 }
 
@@ -385,7 +409,7 @@ fn parse_args(allocator: mem.Allocator) !Flags {
     }
 
     if (seed == null and build_mode.? != .ReleaseSafe) {
-        fatal("random seeds must be run in ReleaseSafe mode.", .{});
+        fatal("random seeds must be run in ReleaseSafe mode", .{});
     }
 
     return Flags{
