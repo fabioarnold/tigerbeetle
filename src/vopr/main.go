@@ -536,7 +536,7 @@ func create_issue_file(issue_file_name string, output *vopr_output, message_hash
 func create_github_issue(message vopr_message, output *vopr_output, issue_file_name string) error {
 	body := create_issue_markdown(message, output)
 	if output.seed_passed {
-		body = "Note this seed passed when it was rerun by the VOPR Hub.<br>" + body
+		body = "Note this seed passed when it was rerun by the VOPR Hub.<br><br>" + body
 	}
 	// Removes the file path from the name.
 	issue_file_name = strings.Replace(issue_file_name, issue_directory+"/", "", 1)
