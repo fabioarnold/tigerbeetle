@@ -82,6 +82,9 @@ func (output *vopr_output) test_passed() bool {
 
 // The stack trace is moved from output.logs into output.stack_trace.
 func (output *vopr_output) extract_stack_trace(message *vopr_message) {
+	if output.seed_passed {
+		return;
+	}
 	// The stack trace begins on the first line that starts with neither a square bracket nor
 	// white space.
 	address_regexpr := regexp.MustCompile(`(\n([^\[\s]))`)
