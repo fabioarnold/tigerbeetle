@@ -259,7 +259,7 @@ func decode_message(input vopr_message_byte_array) (vopr_message, error) {
 	// throughout the logs.
 	hash := sha256.Sum256(input[16:])
 	copy( message.hash[:], hash[0:16])
-	if bytes.Compare(message.hash[:], input[0:16]) == 0 {
+	if bytes.Compare(message.hash[:], input[0:16]) != 0 {
 		checksum_error := fmt.Errorf("Received message with invalid checksum")
 		log_error(checksum_error.Error(), nil)
 		return message, checksum_error

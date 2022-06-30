@@ -276,8 +276,7 @@ pub fn main() !void {
         for (cluster.clients) |*client| client.tick();
 
         if (cluster.state_checker.transitions == transitions_max) {
-            const converged = cluster.state_checker.convergence() catch break;
-            if (converged and
+            if (cluster.state_checker.convergence() and
                 cluster.replica_up_count() == replica_count)
             {
                 break;
@@ -304,12 +303,7 @@ pub fn main() !void {
         panic(.liveness, "unable to complete transitions_max before ticks_max", .{});
     }
 
-    const convergence = cluster.state_checker.convergence() catch |err| {
-        panic(.correctness, "state checker convergence error: {}", .{err});
-    };
-    if (!convergence) {
-        panic(.correctness, "cluster did not converge on the same state", .{});
-    }
+    assert(cluster.state_checker.convergence());
 
     output.info("\n          PASSED ({} ticks)", .{tick});
 }

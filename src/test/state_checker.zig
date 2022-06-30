@@ -123,7 +123,7 @@ pub const StateChecker = struct {
         return error.ReplicaTransitionedToInvalidState;
     }
 
-    pub fn convergence(state_checker: *StateChecker) !bool {
+    pub fn convergence(state_checker: *StateChecker) bool {
         const cluster = @fieldParentPtr(Cluster, "state_checker", state_checker);
 
         const a = state_checker.state_machine_states[0];
@@ -135,7 +135,7 @@ pub const StateChecker = struct {
         if (transitions_executed < state_checker.transitions) {
             // Cluster reached convergence but on a regressed state.
             // A replica reached the transition limit, crashed, then repaired.
-            return error.ClusterRegressedState;
+            return false;
         } else {
             assert(transitions_executed == state_checker.transitions);
         }
