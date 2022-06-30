@@ -239,17 +239,16 @@ func handle_connection(
 			log_info("Too many messages already queued, dropping message", message.hash[:])
 		}
 	} else {
-		log_info("The input received is invalid", nil)
+		log_error(decoding_error.Error(), nil)
 	}
 }
 
 // Decodes the vopr_message_byte_array into a vopr_message struct.
 func decode_message(input vopr_message_byte_array) (vopr_message, error) {
 	var message vopr_message
-	error := fmt.Errorf("Invalid input")
+	error := fmt.Errorf("The input received is invalid")
 
 	if len(input) != LENGTH_OF_VOPR_MESSAGE {
-		log_error(error.Error(), nil)
 		return message, error
 	}
 
@@ -261,18 +260,15 @@ func decode_message(input vopr_message_byte_array) (vopr_message, error) {
 	copy( message.hash[:], hash[0:16])
 	if bytes.Compare(message.hash[:], input[0:16]) != 0 {
 		checksum_error := fmt.Errorf("Received message with invalid checksum")
-		log_error(checksum_error.Error(), nil)
 		return message, checksum_error
 	}
 
 	// Ensure the bug and seed are valid.
 	if !(input[16] == 1 || input[16] == 2 || input[16] == 3) {
-		log_error(error.Error(), nil)
 		return message, error
 	}
 	seed := uint64(binary.BigEndian.Uint64(input[17:25]))
 	if seed < 0 {
-		log_error(error.Error(), nil)
 		return message, error
 	}
 
