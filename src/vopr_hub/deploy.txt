@@ -1,3 +1,5 @@
+Make a script with steps and comments are fine
+Link to this from the README
 ssh root@65.21.207.251
 
 # copy files and folders between local machine and server

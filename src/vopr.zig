@@ -70,6 +70,8 @@ const Bug = enum(u8) {
     correctness = 129,
 };
 
+const LENGTH_OF_VOPR_MESSAGE = 45;
+
 pub fn main() void {
     var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
     defer arena.deinit();
@@ -233,7 +235,8 @@ fn check_git_status(allocator: mem.Allocator) void {
 // The VOPR Hub will attempt to verify the bug and automatically create a GitHub issue.
 fn send_report(allocator: mem.Allocator, address: net.Address, bug: Bug, seed: u64) void {
     var message: Report = create_report(allocator, bug, seed);
-    var byte_array: [29]u8 = undefined;
+    var byte_array: [LENGTH_OF_VOPR_MESSAGE]u8 = undefined;
+    var hash: [32]u8 = undefined;
 
     // Bug type
     assert(message.bug == 1 or message.bug == 2 or message.bug == 3);
@@ -244,11 +247,17 @@ fn send_report(allocator: mem.Allocator, address: net.Address, bug: Bug, seed: u
     seed_integer_value = @byteSwap(u64, seed_integer_value);
     const seed_byte_array: [8]u8 = @bitCast([8]u8, seed_integer_value);
 
-    byte_array[0] = message.bug;
-    var offset: usize = 1;
+    // Leave the first 16 bytes open to store the first half of a SHA256 hash of the message.
+    byte_array[16] = message.bug;
+    var offset: usize = 17;
     mem.copy(u8, byte_array[offset..], &seed_byte_array);
     offset = offset + seed_byte_array.len;
     mem.copy(u8, byte_array[offset..], &message.commit);
+
+    // Hash the bug report message.
+    std.crypto.hash.sha2.Sha256.hash(byte_array[16..], hash[0..], .{});
+    // Append the first half of the hash to the beginning of the byte array.
+    mem.copy(u8, byte_array[0..15], hash[0..15]);
 
     // Send message
     const stream = net.tcpConnectToAddress(address) catch |err| {

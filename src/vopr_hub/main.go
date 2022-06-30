@@ -30,7 +30,7 @@ import (
 
 const MAX_CONCURRENT_CONNECTIONS = 4
 const MAX_QUEUING_MESSAGES = 100
-const LENGTH_OF_VOPR_MESSAGE = 29
+const LENGTH_OF_VOPR_MESSAGE = 45
 
 // GitHub's hard character limit for issues is 65536
 const MAX_GITHUB_ISSUE_SIZE = 60000
