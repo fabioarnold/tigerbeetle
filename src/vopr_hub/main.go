@@ -54,7 +54,7 @@ type vopr_message struct {
 	bug    uint8
 	seed   uint64
 	commit [20]byte
-	hash   [32]byte
+	hash   [16]byte
 }
 
 // The VOPR's output is stored in a vopr_output struct where certain elements can be extracted and
@@ -253,26 +253,35 @@ func decode_message(input vopr_message_byte_array) (vopr_message, error) {
 		return message, error
 	}
 
+	// Expect the first 16 bytes of the message to be the first half of a SHA256 hash of the
+	// remainder of the message.
+	// If correct, this half of the hash is then also used as a unique identifier of this message
+	// throughout the logs.
+	hash := sha256.Sum256(input[16:])
+	copy( message.hash[:], hash[0:16])
+	if bytes.Compare(message.hash[:], input[0:16]) == 0 {
+		checksum_error := fmt.Errorf("Received message with invalid checksum")
+		log_error(checksum_error.Error(), nil)
+		return message, checksum_error
+	}
+
 	// Ensure the bug and seed are valid.
-	if !(input[0] == 1 || input[0] == 2 || input[0] == 3) {
+	if !(input[16] == 1 || input[16] == 2 || input[16] == 3) {
 		log_error(error.Error(), nil)
 		return message, error
 	}
-	seed := uint64(binary.BigEndian.Uint64(input[1:9]))
+	seed := uint64(binary.BigEndian.Uint64(input[17:25]))
 	if seed < 0 {
 		log_error(error.Error(), nil)
 		return message, error
 	}
 
 	// The bug type (1, 2, or 3) is encoded as a uint8.
-	message.bug = input[0]
+	message.bug = input[16]
 	// The seed is encoded as a uint64
 	message.seed = seed
 	// The GitHub commit hash is remains as a 20 byte array
-	copy(message.commit[:], input[9:29])
-	// Sha256 hash of the vopr_message_byte_array is used as a unique identifier of this message
-	// throughout the logs.
-	message.hash = sha256.Sum256(input[:])
+	copy(message.commit[:], input[25:45])
 
 	return message, nil
 }
@@ -790,7 +799,7 @@ func log_message(log_level string, message string, vopr_message_hash []byte) {
 	timestamp := time.Now().UTC().Round(time.Second).Format("2006-01-02 15:04:05.999999999")
 	if vopr_message_hash != nil {
 		// Only use the first 16 bytes of the message hash as the ID
-		fmt.Printf(timestamp+" "+log_level+"ID:%x %s\n", vopr_message_hash[0:16], message)
+		fmt.Printf(timestamp+" "+log_level+"ID:%x %s\n", vopr_message_hash, message)
 	} else {
 		fmt.Printf(timestamp+" "+log_level+"%s\n", message)
 	}
