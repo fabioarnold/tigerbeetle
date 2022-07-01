@@ -29,7 +29,7 @@ const usage = fmt.comptimePrint(
     \\        When set, the send option opts in to send any bugs found by the VOPR to the VOPR Hub.
     \\        The VOPR Hub will then automatically create a GitHub issue if it can verify the bug.
     \\        The VOPR Hub's address is already present as the default address.
-    \\        You can optionally supply an IPv4 addresses for the VOPR Hub if needed.
+    \\        You can optionally supply an IPv4 address for the VOPR Hub if needed.
     \\        If this option is omitted, any bugs that are found will replay locally in Debug mode.
     \\
     \\  --build-mode=<mode>
@@ -201,7 +201,7 @@ fn run_child_process(allocator: mem.Allocator, argv: []const []const u8) u8 {
                     return @enumToInt(Bug.crash);
                 },
                 else => {
-                    fatal("the simulator exited without an unexpected signal. Term: {}\n", .{term});
+                    fatal("the simulator exited with an unexpected signal. Term: {}\n", .{term});
                 },
             }
         },
@@ -227,7 +227,10 @@ fn check_git_status(allocator: mem.Allocator) void {
     {
         std.debug.print("All code has been committed and pushed.", .{});
     } else {
-        fatal("the VOPR cannot be run with the --send flag when your branch is ahead or there is uncommited code", .{});
+        fatal(
+            "the VOPR cannot run with --send when your branch is ahead or there's uncommited code",
+            .{},
+        );
     }
 }
 
@@ -397,9 +400,17 @@ fn parse_args(allocator: mem.Allocator) !Flags {
             }
         } else if (mem.startsWith(u8, arg, "--simulations")) {
             const num_simulations_string = parse_flag("--simulations", arg);
-            simulations = std.fmt.parseUnsigned(u32, num_simulations_string, 10) catch |err| switch (err) {
-                error.Overflow => @panic("the number of simulations exceeds a 16-bit unsigned integer"),
-                error.InvalidCharacter => @panic("the number of simulations contains an invalid character"),
+            simulations = std.fmt.parseUnsigned(
+                u32,
+                num_simulations_string,
+                10,
+            ) catch |err| switch (err) {
+                error.Overflow => @panic(
+                    "the number of simulations exceeds a 16-bit unsigned integer",
+                ),
+                error.InvalidCharacter => @panic(
+                    "the number of simulations contains an invalid character",
+                ),
             };
         } else if (mem.eql(u8, arg, "-h") or mem.eql(u8, arg, "--help")) {
             std.io.getStdOut().writeAll(usage) catch os.exit(1);
