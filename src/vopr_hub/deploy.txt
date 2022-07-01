@@ -1,116 +1,109 @@
-ssh into the server (e.g. root@65.21.207.251)
+# Install Go:
+sudo add-apt-repository ppa:longsleep/golang-backports
+sudo apt update
+sudo apt install golang-go
 
-Install Go:
-    sudo add-apt-repository ppa:longsleep/golang-backports
-    sudo apt update
-    sudo apt install golang-go
+# Add two users, namely voprrunner and voprhub. This creates separation between the two different functions of the server.
+# The voprrunner will continuously run the VOPR and send any bugs to the VOPR Hub.
+# Will require setting passwords for the respective users
+sudo adduser voprhub
+sudo adduser voprrunner
+sudo usermod -aG sudo voprhub
+sudo usermod -aG sudo voprrunner
 
-Add two users, namely voprrunner and voprhub. This creates separation between the two different functions of the server.
-The voprrunner will continuously run the VOPR and send any bugs to the VOPR Hub.
-The VOPR Hub will be listening and waiting for incoming messages sent from any local or remote VOPRs. If messages arrive it will validate them, replay the seed and create GitHub issues when appropriate.
-Having two users creates a clear separation between what work is being done and which tasks are consuming processing power etc.
-Will reuire setting passwords for the respective users
-    sudo adduser voprhub
-    sudo adduser voprrunner
-    sudo usermod -aG sudo voprhub
-    sudo usermod -aG sudo voprrunner
+# Become voprhub user
+su - voprhub
 
-Become voprhub user
-    su - voprhub
+# Need two tigerbeetle directories here, one for access to the VOPR Hub and the other as access to the VOPR which will be needed to replay seeds that the hub receives.
+git clone https://github.com/coilhq/tigerbeetle.git
+mkdir hub
+cp -r tigerbeetle hub/tigerbeetle
 
-Need two tigerbeetle directories here, 1 for access to the VOPR Hub and the other as access to the VOPR which will be needed to replay seeds that the hub receives.
-    git clone ...
-    mkdir hub
-    cp -r tigerbeetle hub/tigerbeetle
+# Zig needs to be installed globally so that any updates can be done in one place instead of needing to manage them on a directory by directory basis.
+./tigerbeetle/scripts/install_zig.sh
+mv zig /usr/local/lib
 
-Zig needs to be installed globally so that any updates can be done in one place instead of needing to manage them on a directory by directory basis.
-Install Zig (can use the script in any tigerbeetle directory) but move the zig folder to /usr/local/lib/zig
-    ./tigerbeetle/scripts/install_zig.sh
-    mv zig /usr/local/lib
+# The code assumes a local installation of Zig so each tigerbeetle directory requires a symlink to point to /usr/local/lib/zig.
+ln -s /usr/local/lib/zig ./tigerbeetle
+ln -s /usr/local/lib/zig ./hub/tigerbeetle
 
-However the code assumes a local installation of Zig so each tigerbeetle directory requires a symlink to point to /usr/local/lib/zig.
-In each tigerbeetle repo create a symlink with
-    ln -s /usr/local/lib/zig
+# Create a systemd service unit file.
+sudo nano /etc/systemd/system/voprhub.service
+#The file should contain the following (including an actual IP address and developer token with access to public repositories).
+[Unit]
 
-Create a systemd service unit file with nano
-    sudo nano /etc/systemd/system/voprhub.service
-The file should contain:
-    [Unit]
+Description=Continously runs the VOPR Hub.
 
-    Description=Continously runs the VOPR Hub.
+[Service]
 
-    [Service]
+User=voprhub
+WorkingDirectory=/home/voprhub/hub/tigerbeetle/src/vopr
+Environment="REPOSITORY_URL=https://api.github.com/repos/coilhq/tigerbeetle/issues"
+Environment="TIGERBEETLE_DIRECTORY=/home/voprhub/tigerbeetle"
+Environment="VOPR_HUB_ADDRESS=<address>"
+Environment="ISSUE_DIRECTORY=/home/voprhub"
+Environment="DEVELOPER_TOKEN=******"
+ExecStart=go run main.go
+Restart=on-success
 
-    User=voprhub
-    WorkingDirectory=/home/voprhub/hub/tigerbeetle/src/vopr
-    Environment="REPOSITORY_URL=https://api.github.com/repos/coilhq/tigerbeetle/issues"
-    Environment="TIGERBEETLE_DIRECTORY=/home/voprhub/tigerbeetle"
-    Environment="VOPR_HUB_ADDRESS=65.21.207.251:5555"
-    Environment="ISSUE_DIRECTORY=/home/voprhub"
-    Environment="DEVELOPER_TOKEN=******"
-    ExecStart=go run main.go
-    Restart=always
+[Install]
 
-    [Install]
+WantedBy=multi-user.target
 
-    WantedBy=multi-user.target
+# Start the VOPR Hub service
+systemctl start voprhub.service
+# Check it is up
+systemctl status voprhub.service
+# View logs e.g.
+journalctl -f -n 100 -u voprhub.service
 
-As you can see this requires a GitHub developer token. This developer token needs access to public repositories.
+# Go back to root user
+exit
 
-Start the VOPR Hub service
-    systemctl start voprhub.service
-Check it is up with
-    systemctl status voprhub.service
-View logs with e.g.
-    journalctl -f -n 100 -u voprhub.service
+# Become voprrunner user
+su - voprrunner
 
-Go back to root user
-    exit
+# Need ten tigerbeetle directories here
+git clone https://github.com/coilhq/tigerbeetle.git
+cp -r tigerbeetle tigerbeetle1 # repeat with incrementing values for the other instances.
+# Can remove original folder
+rm -r tigerbeetle
 
-Become voprrunner user
-    su - voprrunner
+# Create a symlink in each directory to point to /usr/local/lib/zig
+ln -s /usr/local/lib/zig ./tigerbeetle1 # repeat with incrementing values for the other instances.
 
-Need ten tigerbeetle directories here
-    git clone ...
-    cp -r tigerbeetle tigerbeetle1 etc.
-Can remove original folder
-    rm -r tigerbeetle
+# Create a systemd service unit file.
+# Naming the file vopr@.service means it acts as a template that can reuse the same file to run different services that each target their own directories.
+sudo nano /etc/systemd/system/vopr@.service
+[Unit]
+Description=Continously runs the VOPR.
+PartOf=vopr.target
 
-Create a symlink in each directory to point to /usr/local/lib/zig
-    ln -s /usr/local/lib/zig
+[Service]
 
-naming the file vopr@.service means we have a template that we can reuse the same file to run different services that each target their own directories.
-Create a systemd service unit file with nano
-    sudo nano /etc/systemd/system/vopr@.service
-    [Unit]
-    Description=Continously runs the VOPR.
-    PartOf=vopr.target
+User=voprrunner
+WorkingDirectory=/home/voprrunner/tigerbeetle%i
+ExecStart=/home/voprrunner/tigerbeetle%i/zig/zig build vopr -- --send="<address>"
+Restart=on-success
 
-    [Service]
+[Install]
 
-    User=voprrunner
-    WorkingDirectory=/home/voprrunner/tigerbeetle%i
-    ExecStart=/home/voprrunner/tigerbeetle%i/zig/zig build vopr -- --send="65.21.207.251:5555"
-    Restart=always
+WantedBy=multi-user.target
 
-    [Install]
+# Create a target file to manage all instances, called vopr.target.
+sudo nano /etc/systemd/system/vopr.target
+[Unit]
+Description=Runs all VOPR services.
+Requires=vopr@1.service vopr@2.service vopr@3.service vopr@4.service vopr@5.service vopr@6.service vopr@7.service vopr@8.service vopr@9.service vopr@10.service
 
-    WantedBy=multi-user.target
+[Install]
+WantedBy=multi-user.target
 
-Then create a target file to manage all instances called vopr.target
-    sudo nano /etc/systemd/system/vopr.target
-    [Unit]
-    Description=Runs all VOPR services.
-    Requires=vopr@1.service vopr@2.service vopr@3.service vopr@4.service vopr@5.service vopr@6.service vopr@7.service vopr@8.service vopr@9.service vopr@10.service
-
-    [Install]
-    WantedBy=multi-user.target
-
-Start all services with
-    systemctl start vopr.target
-Check it's up with
-    systemctl status vopr.target
-Check individual services started up with
-    systemctl status vopr@1.service
-View logs with e.g.
-    journalctl -f -n 100 -u vopr@1.service
+# Start all services
+systemctl start vopr.target
+# Check it's up
+systemctl status vopr.target
+# Check individual services started up
+systemctl status vopr@1.service
+# View logs e.g.
+journalctl -f -n 100 -u vopr@1.service
