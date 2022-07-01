@@ -14,10 +14,8 @@ sudo usermod -aG sudo voprrunner
 # Become voprhub user
 su - voprhub
 
-# Need two tigerbeetle directories here, one for access to the VOPR Hub and the other as access to the VOPR which will be needed to replay seeds that the hub receives.
+# Clone tigerbeetle
 git clone https://github.com/coilhq/tigerbeetle.git
-mkdir hub
-cp -r tigerbeetle hub/tigerbeetle
 
 # Zig needs to be installed globally so that any updates can be done in one place instead of needing to manage them on a directory by directory basis.
 ./tigerbeetle/scripts/install_zig.sh
@@ -25,7 +23,10 @@ mv zig /usr/local/lib
 
 # The code assumes a local installation of Zig so each tigerbeetle directory requires a symlink to point to /usr/local/lib/zig.
 ln -s /usr/local/lib/zig ./tigerbeetle
-ln -s /usr/local/lib/zig ./hub/tigerbeetle
+
+# Need a second tigerbeetle directory here inside the hub directory which will run the VOPR Hub, then the initial tigerbeetle directory will be needed to replay seeds that the hub receives.
+mkdir hub
+cp -r tigerbeetle hub/tigerbeetle
 
 # Create a systemd service unit file.
 sudo nano /etc/systemd/system/voprhub.service
@@ -63,14 +64,26 @@ exit
 # Become voprrunner user
 su - voprrunner
 
+# Create a script that will be used by the service to pull the latest code and run the VOPR.
+sudo nano vopr_runner.sh
+#The file should contain:
+#!/usr/bin/env bash
+set -e
+
+# Fetch the latest code
+git pull
+
+# Run the VOPR
+zig/zig run ./src/vopr.zig -- --send="127.0.0.1:5555" --simulations=5
+
 # Need ten tigerbeetle directories here
 git clone https://github.com/coilhq/tigerbeetle.git
+# Create a symlink in the directory to point to /usr/local/lib/zig
+ln -s /usr/local/lib/zig ./tigerbeetle
+# Copy this directory to get 10 tigerbeetle directories.
 cp -r tigerbeetle tigerbeetle1 # repeat with incrementing values for the other instances.
 # Can remove original folder
 rm -r tigerbeetle
-
-# Create a symlink in each directory to point to /usr/local/lib/zig
-ln -s /usr/local/lib/zig ./tigerbeetle1 # repeat with incrementing values for the other instances.
 
 # Create a systemd service unit file.
 # Naming the file vopr@.service means it acts as a template that can reuse the same file to run different services that each target their own directories.
@@ -83,7 +96,7 @@ PartOf=vopr.target
 
 User=voprrunner
 WorkingDirectory=/home/voprrunner/tigerbeetle%i
-ExecStart=/home/voprrunner/tigerbeetle%i/zig/zig build vopr -- --send="<address>"
+ExecStart=/home/voprrunner/tigerbeetle/vopr_runner.sh
 Restart=on-success
 
 [Install]
