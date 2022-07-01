@@ -1,44 +1,44 @@
-VOPR Hub
+# VOPR Hub
 
-The VOPR Hub recieves bug reports from VOPRs. It reruns these bugs locally in Debug mode and collects the logs in order to automatically create GitHub issues with the logs.
+*When a VOPR is run with the send flag and a seed fails, it will send a bug report to the VOPR Hub. The VOPR Hub then replays the seed locally in Debug mode and collects the logs in order to automatically create a GitHub issue.*
 
-The VOPR Hub listens out for bug reports sent by the VOPR via TCP.
+## The VOPR
 
-The VOPR has an optional --send flag that enables it to send bugs to the VOPR Hub. This flag can only be used when all code has been commiteed and pushed as the same GitHub commit hash must be accessible by the VOPR Hub for it to successfully rerun seeds.
+*The Viewstamped Operation Replicator* provides deterministic simulation testing for TigerBeetle.It tests that clusters of TigerBeetle servers and clients interact correctly according to TigerBeetle's Viewstamped Replication consensus protocol, as well as simulating network and storage faults, and checking each replica's state after each transition.
 
-Messages take the format:
-    bug - where 1 indicates a correctness bug, 2 a liveness bug and 3 a crash.
-    The seed that failed
-    the GitHub commit hash that was used for running the VOPR
+The VOPR has an optional --send flag that enables it to send bug reports to the VOPR Hub. This flag can only be used when all code has been committed and pushed. For the VOPR Hub to replay a failing seed it needs to run that seed on the same commit to get the same result.
 
-When the VOPR Hub receives a message it first validates it.
-The message is a fixed-size 45 byte byte array.
-The first 16 bytes are the first half of a SHA256 hash of the remaining 29 bytes.
-The next byte should be an integer between 1 and three.
-The next 8 bytes should be an integer reflecting the seed.
-The remaining 20 bytes are the GitHub commit hash and should all be valid hex characters.
+If the VOPR discovers a failing seed it creates a bug report in the format of a fixed length byte array.
 
-Once the message is determined to be valid then a reply (1) is sent to the VOPR that sent the message and the connection is closed. If it's invalid the connection is simply closed.
+* 16 bytes conatin the first half of a SHA256 hash of the remainder of the message.
+* 1 byte indicates the type of bug detected (correctness, liveness, or crash).
+* 8 bytes are reserved for the seed.
+* The final 20 bytes contain the hash of the git commit that the test was run on.
 
-The message has now been decoded and is added to a queue for processing.
+## Steps the VOPR Hub Takes
 
-The VOPR Hub has a Go Routine running that constantly checks if there are messages waiting in the queue. If there is a message it begins processing.
+The VOPR Hub listens for bug reports sent by the VOPR via TCP.
 
-First the messages are deduped if an issue withat seed and commit hash already exist.
+### Validation
 
-Checkout commit if found on repo (if not found then just write to server activity logs that captures activity)
+When the VOPR Hub receives a message it first validates it. Messages are expected to be exactly 45 bytes in length. The VOPR Hub hashes the last 29 bytes of the message and ensures the first half that SHA256 hash matches the first 16 bytes of the message. This gaurds against decoding random traffic that arrives at the server. If the hash is correct then the VOPR Hub checks that the first byte (representing the bug type) is between 1 and 3 and that the 8 bytes that represent the seed can be converted to an unsigned integer. The remaining 20 bytes are the GitHub commit hash and should all be able to be decoded to valid hex characters.
 
-Run VOPR with seed in debug mode. If the seed succeeds for some reason then just write to server activity logs.
+Once validated the message is decoded and added to a queue for processing.
 
-Extract and parse stack trace if there is one - want to remove the directory info that reflects the structure on the specific machine (i.e. up until and including the tigerbeetle directory, and remove memory addresses). The point of this is to get a deterministic version of the stack trace.
+### Replies to the VOPR
 
-Hash the stack trace.
+Once the message is determined to be valid then a reply of "1" is sent back to the VOPR and the connection is closed. If it's invalid, the connection is simply closed and no further processing is required.
 
-Generate the file name: 
-1_seed_commithash(correctness)
-2_seed_commithash (liveness)
-3_commithash_stacktracehash (crash) (multiple seeds for the same commit can give the same stack trace, but if only use stack trace then a liveness bug can come back again and we risk ignoring it even though it reappeared.)
+### Message Processing
 
-A copy of the issue is written to disk.
+When the VOPR Hub replays a seed it will save the logs to disk. This way each issue can be tracked to see if it has already been submitted. For correctness bugs (bug 1) and liveness bugs (bug 2) the file name is simply bug_seed_commithash. Correctness and liveness bugs can be deduped immediately by checking for their file name on disk. Crash bugs (bug 3) do not include the seed in their file name but do have an additional field which is the hash of the stack trace of the issue (bug_commithash_stacktracehash). Therefore they can only be deduped after the seed has been replayed and logs have been generated.
 
-Create GitHub issue even if the seed unexpectedly passes. Issue contains bug type, seed, commit hash, parameters for the VOPR, stack trace if there is one, debug logs and timestamp.
+If no duplicate issue has been found then the VOPR Hub will replay the seed in Debug mode and capture the logs. In order to do this it must first checkout the correct git commit. This step requires that the reported commit is available on the tigerbeetle repository.
+
+### Create an Issue
+
+Once the simulation has completed the stack trace is extracted and parsed to remove the directory structure and any memory addresses so that it is made to be deterministic. This way it can be hashed and used to dedupe any crash bugs that may have already been logged. Crash bugs include a stack trace hash in their file name because it is possible TODO (complete reason)
+
+A copy of the issue is written to disk and a GitHub issue is also automatically generated.The issue contains the bug type, seed, commit hash, parameters of the VOPR, stack trace (if there is one), debug logs, and a timestamp.
+
+Note that if the VOPR Hub replays a seed and it passes unexpectedly then an issue will still be created with a note explaining that the seed passed.
