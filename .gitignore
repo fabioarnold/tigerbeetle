@@ -8,6 +8,6 @@ simulator
 tigerbeetle*
 benchmark.log
 cluster_*_replica_*.tigerbeetle
-zig
+zig/
 zig-cache/
 zig-out/

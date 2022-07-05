@@ -17,12 +17,10 @@ su - voprhub
 # Clone tigerbeetle
 git clone https://github.com/coilhq/tigerbeetle.git
 
-# Zig needs to be installed globally so that any updates can be done in one place instead of needing to manage them on a directory by directory basis.
-./tigerbeetle/scripts/install_zig.sh
-mv zig /usr/local/lib
-
-# The code assumes a local installation of Zig so each tigerbeetle directory requires a symlink to point to /usr/local/lib/zig.
-ln -s /usr/local/lib/zig ./tigerbeetle
+# Zig needs to be installed.
+cd ./tigerbeetle
+./scripts/install_zig.sh
+cd ../
 
 # Need a second tigerbeetle directory here inside the hub directory which will run the VOPR Hub, then the initial tigerbeetle directory will be needed to replay seeds that the hub receives.
 mkdir hub
@@ -38,7 +36,7 @@ Description=Continously runs the VOPR Hub.
 [Service]
 
 User=voprhub
-WorkingDirectory=/home/voprhub/hub/tigerbeetle/src/vopr
+WorkingDirectory=/home/voprhub/hub/tigerbeetle/src/vopr_hub
 Environment="REPOSITORY_URL=https://api.github.com/repos/coilhq/tigerbeetle/issues"
 Environment="TIGERBEETLE_DIRECTORY=/home/voprhub/tigerbeetle"
 Environment="VOPR_HUB_ADDRESS=<address>"
@@ -76,11 +74,13 @@ git pull
 # Run the VOPR
 zig/zig run ./src/vopr.zig -- --send="127.0.0.1:5555" --simulations=5
 
-# Need ten tigerbeetle directories here
+# Need four tigerbeetle directories here
 git clone https://github.com/coilhq/tigerbeetle.git
-# Create a symlink in the directory to point to /usr/local/lib/zig
-ln -s /usr/local/lib/zig ./tigerbeetle
-# Copy this directory to get 10 tigerbeetle directories.
+# Install Zig
+cd ./tigerbeetle
+./scripts/install_zig.sh
+cd ../
+# Copy this directory to get four tigerbeetle directories.
 cp -r tigerbeetle tigerbeetle1 # repeat with incrementing values for the other instances.
 # Can remove original folder
 rm -r tigerbeetle
@@ -96,7 +96,7 @@ PartOf=vopr.target
 
 User=voprrunner
 WorkingDirectory=/home/voprrunner/tigerbeetle%i
-ExecStart=/home/voprrunner/tigerbeetle/vopr_runner.sh
+ExecStart=/home/voprrunner/vopr_runner.sh
 Restart=on-success
 
 [Install]
@@ -104,10 +104,11 @@ Restart=on-success
 WantedBy=multi-user.target
 
 # Create a target file to manage all instances, called vopr.target.
+# Dependencies must be listed under Wants instead of Requires because requiring the services will cause them all to restart whenever one terminates.
 sudo nano /etc/systemd/system/vopr.target
 [Unit]
 Description=Runs all VOPR services.
-Requires=vopr@1.service vopr@2.service vopr@3.service vopr@4.service vopr@5.service vopr@6.service vopr@7.service vopr@8.service vopr@9.service vopr@10.service
+Wants=vopr@1.service vopr@2.service vopr@3.service vopr@4.service
 
 [Install]
 WantedBy=multi-user.target
