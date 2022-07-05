@@ -90,9 +90,13 @@ pub fn main() void {
     if (args.seed) |seed| {
         // Build in fast ReleaseSafe mode if required, useful where you don't need debug logging:
         if (args.build_mode != .Debug) {
+            // Build the simulator binary
+            build_simulator(allocator, .ReleaseSafe);
             std.debug.print("Replaying seed {} in ReleaseSafe mode...\n", .{seed});
             _ = run_simulator(allocator, seed, .ReleaseSafe, args.send_address);
         } else {
+            // Build the simulator binary
+            build_simulator(allocator, .Debug);
             std.debug.print(
                 "Replaying seed {} in Debug mode with full debug logging enabled...\n",
                 .{seed},
@@ -102,6 +106,8 @@ pub fn main() void {
     } else if (args.build_mode == .Debug) {
         fatal("no seed provided: the VOPR must be run with --mode=ReleaseSafe", .{});
     } else {
+        // Build the simulator binary
+        build_simulator(allocator, .ReleaseSafe);
         // Run the simulator with randomly generated seeds.
         var i: u32 = 0;
         while (i < args.simulations) : (i += 1) {
@@ -120,6 +126,36 @@ pub fn main() void {
     }
 }
 
+// Builds the simulator binary
+fn build_simulator(
+    allocator: mem.Allocator,
+    mode: std.builtin.Mode,
+) void {
+    const mode_str = switch (mode) {
+        .Debug => "-ODebug",
+        .ReleaseSafe => "-OReleaseSafe",
+        else => unreachable,
+    };
+
+    const exec_result = std.ChildProcess.exec(.{
+        .allocator = allocator,
+        .argv = &.{ "zig/zig", "build-exe", "./src/simulator.zig", mode_str },
+    }) catch |err| {
+        fatal("unable to build the simulator binary. Error: {}", .{err});
+    };
+
+    switch (exec_result.term) {
+        .Exited => |code| {
+            if (code != 0) {
+                fatal("unable to build the simulator binary. Term: {}\n", .{exec_result.term});
+            }
+        },
+        else => {
+            fatal("unable to build the simulator binary. Term: {}\n", .{exec_result.term});
+        },
+    }
+}
+
 // Runs the simulator as a child process.
 // Reruns the simulator in Debug mode if a seed fails in ReleaseSafe mode.
 fn run_simulator(
@@ -134,18 +170,13 @@ fn run_simulator(
     fmt.formatInt(seed, 10, .lower, .{}, seed_str.writer()) catch |err| switch (err) {
         error.OutOfMemory => fatal("unable to format seed as an int. Error: {}", .{err}),
     };
-    const mode_str = switch (mode) {
-        .Debug => "-ODebug",
-        .ReleaseSafe => "-OReleaseSafe",
-        else => unreachable,
-    };
 
     // The child process executes zig run instead of zig build. Otherwise the build process is
     // interposed between the VOPR and the simulator and its exit code is returned instead of the
     // simulator's exit code.
     const exit_code = run_child_process(
         allocator,
-        &.{ "zig/zig", "run", mode_str, "./src/simulator.zig", "--", seed_str.items },
+        &.{ "./simulator", seed_str.items },
     );
 
     const result = switch (exit_code) {
@@ -167,6 +198,8 @@ fn run_simulator(
         if (mode == .ReleaseSafe) {
             std.debug.print("simulator exited with exit code {}.\n", .{@enumToInt(bug)});
             std.debug.print("rerunning seed {} in Debug mode.\n", .{seed});
+            // Build the simulator binary in Debug mode instead
+            build_simulator(allocator, .Debug);
             assert(bug == run_simulator(allocator, seed, .Debug, null).?);
         }
     }
