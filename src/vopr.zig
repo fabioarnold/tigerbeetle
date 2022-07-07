@@ -332,8 +332,6 @@ fn create_report(allocator: mem.Allocator, bug: Bug, seed: u64) Report {
         .crash => bug_type = 3,
     }
 
-    assert(bug_type != undefined);
-
     // Running git log to extract the current TigerBeetle git commit hash from stdout.
     var args = [3][]const u8{ "git", "log", "-1" };
     var exec_result = std.ChildProcess.exec(.{
