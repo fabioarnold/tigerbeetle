@@ -185,7 +185,7 @@ fn run_simulator(
         128 => Bug.liveness,
         129 => Bug.correctness,
         else => {
-            std.debug.print("unexpected simulator exit code: {}", .{exit_code});
+            std.debug.print("unexpected simulator exit code: {}\n", .{exit_code});
             @panic("unexpected simulator exit code.");
         },
     };
@@ -258,7 +258,7 @@ fn check_git_status(allocator: mem.Allocator) void {
     if (mem.containsAtLeast(u8, git_status, 1, "nothing to commit, working tree clean") and
         !mem.containsAtLeast(u8, git_status, 1, "Your branch is ahead of"))
     {
-        std.debug.print("All code has been committed and pushed.", .{});
+        std.debug.print("All code has been committed and pushed.\n", .{});
     } else {
         fatal(
             "the VOPR cannot run with --send when your branch is ahead or there's uncommited code",
@@ -300,7 +300,7 @@ fn send_report(allocator: mem.Allocator, address: net.Address, bug: Bug, seed: u
         fatal("unable to create a connection to the VOPR Hub. Error: {}", .{err});
     };
 
-    std.debug.print("Connected to VOPR Hub.", .{});
+    std.debug.print("Connected to VOPR Hub.\n", .{});
 
     var writer = stream.writer();
     writer.writeAll(&byte_array) catch |err| {
@@ -314,9 +314,9 @@ fn send_report(allocator: mem.Allocator, address: net.Address, bug: Bug, seed: u
         fatal("unable to read a reply from the VOPR Hub. Error: {}", .{err});
     };
     if (bytes_read > 0) {
-        std.debug.print("Confirmation received from VOPR Hub: {s}.", .{reply});
+        std.debug.print("Confirmation received from VOPR Hub: {s}.\n", .{reply});
     } else {
-        std.debug.print("No reply received from VOPR Hub.", .{});
+        std.debug.print("No reply received from VOPR Hub.\n", .{});
     }
 }
 
