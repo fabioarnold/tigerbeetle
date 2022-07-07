@@ -293,7 +293,7 @@ fn send_report(allocator: mem.Allocator, address: net.Address, bug: Bug, seed: u
     // Hash the bug report message.
     std.crypto.hash.sha2.Sha256.hash(byte_array[16..], hash[0..], .{});
     // Append the first half of the hash to the beginning of the byte array.
-    mem.copy(u8, byte_array[0..15], hash[0..15]);
+    mem.copy(u8, byte_array[0..16], hash[0..16]);
 
     // Send message
     const stream = net.tcpConnectToAddress(address) catch |err| {
