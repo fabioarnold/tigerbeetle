@@ -256,7 +256,7 @@ fn check_git_status(allocator: mem.Allocator) void {
 
     var git_status = exec_result.stdout;
     if (mem.containsAtLeast(u8, git_status, 1, "nothing to commit, working tree clean") and
-        !mem.containsAtLeast(u8, git_status, 1, "Your branch is ahead of"))
+        mem.containsAtLeast(u8, git_status, 1, "Your branch is up to date"))
     {
         std.debug.print("All code has been committed and pushed.\n", .{});
     } else {
