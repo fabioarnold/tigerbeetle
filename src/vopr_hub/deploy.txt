@@ -74,7 +74,9 @@ git pull
 # Run the VOPR
 zig/zig run ./src/vopr.zig -- --send="127.0.0.1:5555" --simulations=5
 
-# Need four tigerbeetle directories here
+# Need four tigerbeetle directories here.
+# Note that the number of directories corresponds to the number of service instances that will run.
+# This number should be increased/decreased to be two less than the number of CPU cores available.
 git clone https://github.com/coilhq/tigerbeetle.git
 # Install Zig
 cd ./tigerbeetle
