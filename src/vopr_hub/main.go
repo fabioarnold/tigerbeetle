@@ -408,7 +408,7 @@ func generate_file_name(message vopr_message, stack_trace_hash string) string {
 
 // Fetch available branches from GitHub and checkout the correct commit if it exists.
 func checkout_commit(commit string, message_hash []byte) error {
-	// Ensures commit is all hexidecimal.
+	// Ensures commit is all hexadecimal.
 	commit_valid, error := regexp.MatchString(`^([0-9a-f]){40}$`, commit)
 	if error != nil {
 		error_message := fmt.Sprintf("Regex failed to run on the GitHub commit %s", error.Error())
