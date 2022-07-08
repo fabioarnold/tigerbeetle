@@ -35,13 +35,15 @@ const LENGTH_OF_VOPR_MESSAGE = 45
 // GitHub's hard character limit for issues is 65536
 const MAX_GITHUB_ISSUE_SIZE = 60000
 
-var debug_mode bool
-var max_length_of_vopr_output = 8 * math.Pow(2, 25)
-var tigerbeetle_directory string
-var issue_directory string
-var developer_token string
-var vopr_hub_address string
-var repository_url string
+var (
+    debug_mode bool
+    max_length_of_vopr_output = 8 * math.Pow(2, 25)
+    tigerbeetle_directory string
+    issue_directory string
+    developer_token string
+    vopr_hub_address string
+    repository_url string
+)
 
 // An alias for the vopr_message's byte array
 type vopr_message_byte_array [LENGTH_OF_VOPR_MESSAGE]byte
