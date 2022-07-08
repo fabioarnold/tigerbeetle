@@ -1,6 +1,6 @@
 # VOPR Hub
 
-*When a VOPR is run with the send flag and a seed fails, it will send a bug report to the VOPR Hub. The VOPR Hub then replays the seed locally in Debug mode and collects the logs in order to automatically create a GitHub issue.*
+*When a VOPR is run with the `send` flag and a seed fails, it will send a bug report to the VOPR Hub. The VOPR Hub then replays the seed locally in `Debug` mode and collects the logs in order to automatically create a GitHub issue.*
 
 ## The VOPR
 
