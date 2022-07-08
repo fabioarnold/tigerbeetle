@@ -778,9 +778,7 @@ func log_error(message string, vopr_message_hash []byte) {
 }
 
 func log_debug(message string, vopr_message_hash []byte) {
-	if !debug_mode {
-		return
-	} else {
+	if debug_mode {
 		log_message("debug: ", message, vopr_message_hash)
 	}
 }
