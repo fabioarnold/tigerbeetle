@@ -266,7 +266,7 @@ func decode_message(input vopr_message_byte_array) (vopr_message, error) {
 	}
 
 	// Ensure the bug and seed are valid.
-	if !(input[16] == 1 || input[16] == 2 || input[16] == 3) {
+	if input[16] != 1 && input[16] != 2 && input[16] != 3 {
 		return message, error
 	}
 	seed := uint64(binary.BigEndian.Uint64(input[17:25]))
