@@ -803,7 +803,7 @@ func log_message(log_level string, message string, vopr_message_hash []byte) {
 
 func main() {
 	// Determine the mode in which to run the VOPR Hub
-	flag.BoolVar(&debug_mode, "debug", false, "runs with debugging logs enabled")
+	flag.BoolVar(&debug_mode, "debug", false, "enable debug logging")
 	flag.Parse()
 
 	set_environment_variables()
