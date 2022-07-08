@@ -123,10 +123,10 @@ func (output *vopr_output) extract_parameters(message *vopr_message) {
 // If the entire stack trace has been recorded, then it's hash will be deterministic.
 func (output *vopr_output) parse_stack_trace(message *vopr_message) {
 	if len(output.stack_trace) > 0 {
-		path_regexpr := regexp.MustCompile(`(/([A-Za-z])*)+/tigerbeetle/`)
-		memory_address_regexpr := regexp.MustCompile(`: 0x([0-9a-z])* in`)
-		thread_regexpr := regexp.MustCompile(`thread ([0-9])* panic:`)
-		line_regexpr := regexp.MustCompile(`line ([0-9])*: ([0-9])*`)
+		path_regexpr := regexp.MustCompile(`(/[A-Za-z]*)+/tigerbeetle/`)
+		memory_address_regexpr := regexp.MustCompile(`: 0x[0-9a-z]* in`)
+		thread_regexpr := regexp.MustCompile(`thread [0-9]* panic:`)
+		line_regexpr := regexp.MustCompile(`line [0-9]*: [0-9]*`)
 		output.stack_trace = path_regexpr.ReplaceAll(output.stack_trace, []byte(""))
 		output.stack_trace = thread_regexpr.ReplaceAll(output.stack_trace, []byte("thread panic:"))
 		output.stack_trace = line_regexpr.ReplaceAll(output.stack_trace, []byte(""))
