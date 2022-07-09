@@ -1102,13 +1102,18 @@ pub fn Replica(
             assert(!self.do_view_change_quorum);
             self.do_view_change_quorum = true;
 
+            // The `prepare_timestamp` prevents a primary's own clock from running backwards.
+            // A primary must not timestamp a prepare before another prepare it has prepared.
+            // Therefore, the `prepare_timestamp`:
+            // 1. is advanced if behind the cluster, but never reset if ahead of the cluster, i.e.
+            // 2. may not always reflect the timestamp of the latest prepared op, and
+            // 3. should be advanced before discarding the timestamps of any uncommitted headers.
+            if (self.state_machine.prepare_timestamp < latest.timestamp) {
+                self.state_machine.prepare_timestamp = latest.timestamp;
+            }
+
             self.discard_uncommitted_headers();
             assert(self.op >= self.commit_max);
-
-            const prepare_timestamp = self.journal.header_with_op(self.op).?.timestamp;
-            if (self.state_machine.prepare_timestamp < prepare_timestamp) {
-                self.state_machine.prepare_timestamp = prepare_timestamp;
-            }
 
             // Start repairs according to the CTRL protocol:
             assert(!self.repair_timeout.ticking);
@@ -2299,6 +2304,11 @@ pub fn Replica(
             const reply = self.message_bus.get_message();
             defer self.message_bus.unref(reply);
 
+            log.debug("{}: commit_op: commit_timestamp={} prepare.header.timestamp={}", .{
+                self.replica,
+                self.state_machine.commit_timestamp,
+                prepare.header.timestamp,
+            });
             assert(self.state_machine.commit_timestamp < prepare.header.timestamp);
 
             const reply_body_size = @intCast(u32, self.state_machine.commit(
