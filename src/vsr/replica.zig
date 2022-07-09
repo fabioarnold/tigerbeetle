@@ -1024,7 +1024,7 @@ pub fn Replica(
             });
 
             var v: ?u32 = null;
-            var k: ?u64 = null;
+            var k: ?u64 = null; // This represents `commit_min` according to each replica.
             var latest = Header.reserved(self.cluster, 0);
 
             for (self.do_view_change_from_all_replicas) |received, replica| {
@@ -1073,7 +1073,24 @@ pub fn Replica(
             for (self.do_view_change_from_all_replicas) |received| {
                 if (received) |m| {
                     for (self.message_body_as_headers(m)) |*h| {
-                        _ = self.repair_header(h);
+                        if (h.op <= m.header.commit) {
+                            if (self.journal.header_with_op_and_checksum(h.op, h.checksum)) |_| {
+                                log.debug("{}: on_do_view_change: op={} committed by replica={}", .{
+                                    self.replica,
+                                    h.op,
+                                    m.header.replica,
+                                });
+                            } else {
+                                log.debug("{}: on_do_view_change: op={} committed by replica={} (repairing)", .{
+                                    self.replica,
+                                    h.op,
+                                    m.header.replica,
+                                });
+                                self.journal.set_header_as_dirty(h);
+                            }
+                        } else {
+                            _ = self.repair_header(h);
+                        }
                     }
                 }
             }
@@ -2545,7 +2562,8 @@ pub fn Replica(
                 // We use the `timestamp` field to send this in addition to the current view number:
                 .timestamp = if (command == .do_view_change) self.view_normal else 0,
                 .op = self.op,
-                .commit = self.commit_max,
+                // See the comment in `on_do_view_change()` for why `commit_min` is crucial:
+                .commit = if (command == .do_view_change) self.commit_min else self.commit_max,
             };
 
             // CRITICAL: The number of prepare headers to include in the body:
@@ -4297,7 +4315,14 @@ pub fn Replica(
             assert(message.header.view == self.view);
             assert(message.header.op == self.op);
             assert(message.header.op == self.message_body_as_headers(message)[0].op);
-            assert(message.header.commit == self.commit_max);
+            // Each replica must advertise its own commit number, so that the primary can know which
+            // headers must be repaired in its own log. Otherwise, a gap in the log may prevent the
+            // primary from repairing its own log adequately, resulting in the log being forked if
+            // the primary also discards uncommitted operations.
+            // It is also safe not to use `commit_max` here because the new primary will assume that
+            // operations after the highest `commit_min` may yet have been committed before the old
+            // primary crashed. The new primary will use the NACK protocol to be sure of a discard.
+            assert(message.header.commit == self.commit_min);
 
             self.send_message_to_replica(self.leader_index(self.view), message);
         }
