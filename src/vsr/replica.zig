@@ -1070,22 +1070,19 @@ pub fn Replica(
             self.set_latest_op_and_k(&latest, k.?, "on_do_view_change");
 
             // Now that we have the latest op in place, repair any other headers:
+            // We must trust headers that other replicas have committed, because repair_header() may
+            // not always be able to affect a repair if there is a gap in the hash chain.
             for (self.do_view_change_from_all_replicas) |received| {
                 if (received) |m| {
                     for (self.message_body_as_headers(m)) |*h| {
                         if (h.op <= m.header.commit) {
                             if (self.journal.header_with_op_and_checksum(h.op, h.checksum)) |_| {
-                                log.debug("{}: on_do_view_change: op={} committed by replica={}", .{
+                                log.debug("{}: on_do_view_change: op={} committed on replica={}", .{
                                     self.replica,
                                     h.op,
                                     m.header.replica,
                                 });
                             } else {
-                                log.debug("{}: on_do_view_change: op={} committed by replica={} (repairing)", .{
-                                    self.replica,
-                                    h.op,
-                                    m.header.replica,
-                                });
                                 self.journal.set_header_as_dirty(h);
                             }
                         } else {
@@ -1112,6 +1109,10 @@ pub fn Replica(
                 self.state_machine.prepare_timestamp = latest.timestamp;
             }
 
+            // TODO At present, discard_uncommitted_headers() does not consider interactions with
+            // the hash chain, i.e. that could lead to a hash chain swing, when it removes
+            // uncommitted ops. This is a correctness bug, where old ops may not be replaced in the
+            // view change. Rather, discard_uncommitted_headers() must fix up self.op after discard.
             self.discard_uncommitted_headers();
             assert(self.op >= self.commit_max);
 
