@@ -168,7 +168,7 @@ Wants=vopr@1.service vopr@2.service vopr@3.service vopr@4.service
 WantedBy=multi-user.target
 ```
 
-Start all services
+Start all services:
 ```bash
 systemctl start vopr.target
 # Check it's up
