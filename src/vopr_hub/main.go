@@ -301,12 +301,12 @@ func worker(vopr_message_channel chan vopr_message) {
 // making the GitHub issue.
 // It also checks for duplicate issues and ensures the specified commit is available.
 func process(message vopr_message) {
-	commit_string := hex.EncodeToString(message.commit[:])
-
 	// Bugs 1 & 2 don't require a stack trace to be deduped
 	if is_duplicate_bug_1_and_2(message) {
 		return
 	}
+
+	commit_string := hex.EncodeToString(message.commit[:])
 
 	error := checkout_commit(commit_string, message.hash[:])
 	if error == nil {
