@@ -17,7 +17,7 @@ If the VOPR discovers a failing seed it creates a bug report in the format of a 
 
 ## VOPR Hub Steps
 
-The VOPR Hub listens for bug reports sent by any VOPR via TCP.
+The hub listens for bug reports sent by any VOPR via TCP.
 
 ### Validation
 
