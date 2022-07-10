@@ -153,7 +153,7 @@ WantedBy=multi-user.target
 
 Create a target file to manage all instances, called vopr.target.
 
-Dependencies must be listed under Wants instead of Requires because requiring the services will cause them all to restart whenever one terminates.
+Dependencies must be listed under `Wants` instead of `Requires` because requiring the services will cause them all to restart whenever one terminates.
 ```bash
 sudo nano /etc/systemd/system/vopr.target
 ```
