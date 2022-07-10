@@ -402,6 +402,8 @@ func generate_file_name(message vopr_message, stack_trace_hash string) string {
 			commit_string,
 			stack_trace_hash,
 		)
+	} else {
+		panic("unreachable")
 	}
 	return file_name
 }
