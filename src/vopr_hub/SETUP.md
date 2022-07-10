@@ -173,7 +173,7 @@ Start all services:
 systemctl start vopr.target
 # Check it's VOPR'izing:
 systemctl status vopr.target
-# Check individual services started up
+# Check that the individual VOPR'raptors have started up:
 systemctl status vopr@1.service
 # View logs e.g.
 journalctl -f -n 100 -u vopr@1.service
