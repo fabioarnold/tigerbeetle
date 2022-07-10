@@ -28,12 +28,12 @@ import (
 	"time"
 )
 
-const MAX_CONCURRENT_CONNECTIONS = 4
-const MAX_QUEUING_MESSAGES = 100
-const LENGTH_OF_VOPR_MESSAGE = 45
+const max_concurrent_connections = 4
+const max_queuing_messages = 100
+const length_of_vopr_message = 45
 
 // GitHub's hard character limit for issues is 65536
-const MAX_GITHUB_ISSUE_SIZE = 60000
+const max_github_issue_size = 60000
 
 var (
 	debug_mode                bool
@@ -46,7 +46,7 @@ var (
 )
 
 // An alias for the vopr_message's byte array
-type vopr_message_byte_array [LENGTH_OF_VOPR_MESSAGE]byte
+type vopr_message_byte_array [length_of_vopr_message]byte
 
 // Struct for decoded VOPR message
 // bug type 1 - correctness
@@ -200,7 +200,7 @@ func handle_connection(
 
 	// If too few bytes were sent then the connection's read deadline will timeout.
 	total_bytes_read := 0
-	for total_bytes_read < LENGTH_OF_VOPR_MESSAGE {
+	for total_bytes_read < length_of_vopr_message {
 		bytes_read, error := connection.Read(input[total_bytes_read:])
 		if error != nil {
 			error_message := fmt.Sprintf("Client closed unexpectedly: %s", error.Error())
@@ -210,7 +210,7 @@ func handle_connection(
 		total_bytes_read += bytes_read
 	}
 
-	if total_bytes_read != LENGTH_OF_VOPR_MESSAGE {
+	if total_bytes_read != length_of_vopr_message {
 		log_error("The input was longer or shorter than expected", nil)
 		return
 	}
@@ -250,7 +250,7 @@ func decode_message(input vopr_message_byte_array) (vopr_message, error) {
 	var message vopr_message
 	error := fmt.Errorf("The input received is invalid")
 
-	if len(input) != LENGTH_OF_VOPR_MESSAGE {
+	if len(input) != length_of_vopr_message {
 		return message, error
 	}
 
@@ -609,7 +609,7 @@ func create_issue_markdown(message vopr_message, output *vopr_output) string {
 	length_of_stack_trace := len(output.stack_trace)
 	length_of_parameters := len(output.parameters)
 	length_of_logs := len(output.logs)
-	remaining_space := MAX_GITHUB_ISSUE_SIZE
+	remaining_space := max_github_issue_size
 
 	stack_trace := ""
 	parameters := ""
@@ -617,13 +617,13 @@ func create_issue_markdown(message vopr_message, output *vopr_output) string {
 
 	// Set the stack trace string
 	if length_of_stack_trace > 0 {
-		if length_of_stack_trace <= MAX_GITHUB_ISSUE_SIZE {
+		if length_of_stack_trace <= max_github_issue_size {
 			stack_trace = make_markdown_compatible(string(output.stack_trace[:]))
 			remaining_space -= length_of_stack_trace
 		} else {
 			// If the stack trace is too large then just capture the beginning of it.
 			stack_trace = make_markdown_compatible(
-				string(output.stack_trace[:MAX_GITHUB_ISSUE_SIZE-4]),
+				string(output.stack_trace[:max_github_issue_size-4]),
 			)
 			stack_trace += "..."
 			remaining_space = 0
@@ -813,11 +813,11 @@ func main() {
 
 	set_environment_variables()
 
-	// This channel ensures no more than MAX_CONCURRENT_CONNECTIONS are being handled at one time.
-	track_connections := make(chan bool, MAX_CONCURRENT_CONNECTIONS)
+	// This channel ensures no more than max_concurrent_connections are being handled at one time.
+	track_connections := make(chan bool, max_concurrent_connections)
 
 	// The channel will receieve fixed-size byte arrays from a VOPR.
-	vopr_message_channel := make(chan vopr_message, MAX_QUEUING_MESSAGES)
+	vopr_message_channel := make(chan vopr_message, max_queuing_messages)
 
 	// Create a worker Goroutine to call process on each item as it appears in the channel.
 	go worker(vopr_message_channel)
