@@ -15,7 +15,7 @@ If the VOPR discovers a failing seed it creates a bug report in the format of a 
 * 8 bytes are reserved for the seed.
 * The final 20 bytes contain the hash of the git commit to which the seed applies.
 
-## VOPR Hub Steps
+## VOPR Hub Logic
 
 The hub listens for bug reports sent by any VOPR via TCP.
 
