@@ -71,7 +71,7 @@ Restart=on-success
 WantedBy=multi-user.target
 ```
 
-Start the VOPR Hub service
+Start the VOPR Hub service:
 ```bash
 systemctl start voprhub.service
 #Check it is up
