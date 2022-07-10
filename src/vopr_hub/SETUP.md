@@ -171,7 +171,7 @@ WantedBy=multi-user.target
 Start all services:
 ```bash
 systemctl start vopr.target
-# Check it's up
+# Check it's VOPR'izing:
 systemctl status vopr.target
 # Check individual services started up
 systemctl status vopr@1.service
