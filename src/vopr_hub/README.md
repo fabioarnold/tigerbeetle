@@ -27,7 +27,7 @@ Once validated, the message is decoded and added to a queue for processing.
 
 ### Replies to the VOPR
 
-Once the message is determined to be valid then a reply of "1" is sent back to the VOPR and the connection is closed. If it's invalid, the connection is simply closed and no further processing is required.
+Once the message is determined to be valid then a reply of "1" is sent back to the VOPR and the connection is closed. If it's invalid, the connection is simply closed (following the principle of “Don't talk to strangers”) and no further processing is applied.
 
 ### Message Processing
 
