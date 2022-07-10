@@ -265,14 +265,11 @@ func decode_message(input vopr_message_byte_array) (vopr_message, error) {
 		return message, checksum_error
 	}
 
-	// Ensure the bug and seed are valid.
+	// Ensure the bug type is valid.
 	if input[16] != 1 && input[16] != 2 && input[16] != 3 {
 		return message, error
 	}
 	seed := binary.BigEndian.Uint64(input[17:25])
-	if seed < 0 {
-		return message, error
-	}
 
 	// The bug type (1, 2, or 3) is encoded as a uint8.
 	message.bug = input[16]
