@@ -21,7 +21,7 @@ The hub listens for bug reports sent by any VOPR via TCP.
 
 ### Validation
 
-When the VOPR Hub receives a message it first validates it. Messages are expected to be exactly 45 bytes in length. The VOPR Hub hashes the last 29 bytes of the message and ensures the first half that SHA256 hash matches the first 16 bytes of the message. This guards against decoding random traffic that arrives at the server. If the hash is correct then the VOPR Hub checks that the first byte (representing the bug type) is between 1 and 3 and that the 8 bytes that represent the seed can be converted to an unsigned integer. The remaining 20 bytes are the GitHub commit hash and should all be able to be decoded to valid hex characters.
+When the hub receives a message it first validates it immediately. Messages are expected to be exactly 45 bytes in length. The hub hashes the last 29 bytes of the message and ensures that the first half of the SHA256 hash matches the first 16 bytes of the message. If the hash is correct then the hub checks that the first byte (representing the bug type) is between 1 and 3. After the 64-bit unsigned seed, the remaining 20 bytes are the GitHub commit hash, which must all decode to valid hex characters.
 
 Once validated the message is decoded and added to a queue for processing.
 
