@@ -4,7 +4,7 @@
 
 ## The VOPR
 
-*The Viewstamped Operation Replicator* provides deterministic simulation testing for TigerBeetle. It tests that clusters of TigerBeetle servers and clients interact correctly according to TigerBeetle's Viewstamped Replication consensus protocol, even under the pressure of simulated network and storage faults, and it checks each replica's state after each transition.
+*The Viewstamped Operation Replicator* provides deterministic simulation testing for TigerBeetle. It tests that clusters of TigerBeetle replicas and clients interact correctly according to TigerBeetle's Viewstamped Replication consensus protocol, even under the pressure of simulated network and storage faults.
 
 The VOPR has an optional `--send` flag that enables it to send bug reports to the VOPR Hub. This flag can only be used when all code has been committed and pushed. For the VOPR Hub to replay a failing seed it needs to run that seed on the same commit to get the same result.
 
