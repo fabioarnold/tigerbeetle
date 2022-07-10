@@ -307,7 +307,7 @@ func process(message vopr_message) {
 	commit_string := hex.EncodeToString(message.commit[:])
 
 	// Bugs 1 & 2 don't require a stack trace to be deduped
-	if dedupe_bug_1_and_2(message) == "duplicate" {
+	if is_duplicate_bug_1_and_2(message) {
 		return
 	}
 
@@ -339,7 +339,7 @@ func process(message vopr_message) {
 	issue_file_name := generate_file_name(message, output.stack_trace_hash)
 
 	// Bug 3 requires a stack trace to be deduped
-	if message.bug == 3 && dedupe(issue_file_name, message.hash[:]) == "duplicate" {
+	if message.bug == 3 && is_duplicate(issue_file_name, message.hash[:]) {
 		return
 	}
 
@@ -357,24 +357,24 @@ func process(message vopr_message) {
 }
 
 // Checks if a duplicate issue has already been submitted.
-func dedupe(issue_file_name string, message_hash []byte) string {
+func is_duplicate(issue_file_name string, message_hash []byte) bool {
 	if _, error := os.Stat(issue_file_name); error == nil {
 		log_info("Duplicate issue found", message_hash)
-		return "duplicate"
+		return true
 	} else {
-		return ""
+		return false
 	}
 }
 
 // Bugs 1 and 2 don't require a stack trace for deduping and so they can be deduped before the VOPR
 // is run.
-func dedupe_bug_1_and_2(message vopr_message) string {
+func is_duplicate_bug_1_and_2(message vopr_message) bool {
 	// If bug type 1 or 2 first check if file exists before parsing and hashing the stack trace
 	if message.bug == 1 || message.bug == 2 {
 		issue_file_name := generate_file_name(message, "")
-		return dedupe(issue_file_name, message.hash[:])
+		return is_duplicate(issue_file_name, message.hash[:])
 	} else {
-		return ""
+		return false
 	}
 }
 
