@@ -48,7 +48,7 @@ Create a systemd service unit file for the VOPR Hub.
 ```bash
 sudo nano /etc/systemd/system/voprhub.service
 ```
-The file should contain the following (including an actual IP address and developer token with access to public repositories).
+The file should contain the following (including an actual IP address and developer token with access to public repositories):
 ```bash
 [Unit]
 
@@ -97,7 +97,7 @@ Create a script that will be used by the service to pull the latest code and run
 sudo nano vopr_runner.sh
 ```
 
-The file should contain:
+The file should contain the following (including an actual IP address):
 ```bash
 #!/usr/bin/env bash
 set -e
@@ -106,7 +106,7 @@ set -e
 git pull
 
 # Run the VOPR
-zig/zig run ./src/vopr.zig -- --send="127.0.0.1:5555" --simulations=5
+zig/zig run ./src/vopr.zig -- --send="<address>" --simulations=5
 ```
 
 Create four tigerbeetle directories here.
