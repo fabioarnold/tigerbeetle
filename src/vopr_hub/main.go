@@ -795,9 +795,9 @@ func log_message(log_level string, message string, vopr_message_hash []byte) {
 	timestamp := time.Now().UTC().Round(time.Second).Format("2006-01-02 15:04:05")
 	if vopr_message_hash != nil {
 		// Only use the first 16 bytes of the message hash as the ID
-		fmt.Printf(timestamp+" "+log_level+"ID:%x %s\n", vopr_message_hash, message)
+		fmt.Printf("%s %sID:%x %s\n", timestamp, log_level, vopr_message_hash, message)
 	} else {
-		fmt.Printf(timestamp+" "+log_level+"%s\n", message)
+		fmt.Printf("%s %s%s\n", timestamp, log_level, message)
 	}
 }
 
