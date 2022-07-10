@@ -92,7 +92,7 @@ To run TigerBeetle's long-running simulation, called *The VOPR*:
 zig/zig build vopr
 ```
 
-Add the send flag to enable the VOPR to report bugs to the VOPR Hub which can automatically create GitHub issues as needed.
+Pass the `send` flag if you want the VOPR also to report any bugs to the VOPR Hub, which can replay, deduplicate, and automatically create GitHub issues as needed.
 
 ```bash
 zig/zig build vopr -- --send
