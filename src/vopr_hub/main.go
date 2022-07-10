@@ -654,12 +654,15 @@ func create_issue_markdown(message vopr_message, output *vopr_output) string {
 	}
 
 	var bugType string
-	if message.bug == 1 {
+	switch message.bug {
+	case 1:
 		bugType = "correctness"
-	} else if message.bug == 2 {
+	case 2:
 		bugType = "liveness"
-	} else if message.bug == 3 {
+	case 3:
 		bugType = "crash"
+	default:
+		panic("unreachable")
 	}
 
 	var body string
