@@ -36,13 +36,13 @@ const LENGTH_OF_VOPR_MESSAGE = 45
 const MAX_GITHUB_ISSUE_SIZE = 60000
 
 var (
-    debug_mode bool
-    max_length_of_vopr_output = 8 * math.Pow(2, 25)
-    tigerbeetle_directory string
-    issue_directory string
-    developer_token string
-    vopr_hub_address string
-    repository_url string
+	debug_mode                bool
+	max_length_of_vopr_output = 8 * math.Pow(2, 25)
+	tigerbeetle_directory     string
+	issue_directory           string
+	developer_token           string
+	vopr_hub_address          string
+	repository_url            string
 )
 
 // An alias for the vopr_message's byte array
@@ -792,7 +792,7 @@ func log_info(message string, vopr_message_hash []byte) {
 // Formats all the log messages and adds a timestamp to them.
 func log_message(log_level string, message string, vopr_message_hash []byte) {
 	// Gets the current time in UTC and rounds to the nearest second.
-	timestamp := time.Now().UTC().Round(time.Second).Format("2006-01-02 15:04:05.999999999")
+	timestamp := time.Now().UTC().Round(time.Second).Format("2006-01-02 15:04:05")
 	if vopr_message_hash != nil {
 		// Only use the first 16 bytes of the message hash as the ID
 		fmt.Printf(timestamp+" "+log_level+"ID:%x %s\n", vopr_message_hash, message)
