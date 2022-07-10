@@ -13,7 +13,7 @@ If the VOPR discovers a failing seed it creates a bug report in the format of a 
 * 16 bytes contain the first half of a SHA256 hash of the remainder of the message, which is used both as a checksum, and to reject clearly misdirected or random network packets.
 * 1 byte indicates the type of bug detected (correctness, liveness, or crash).
 * 8 bytes are reserved for the seed.
-* The final 20 bytes contain the hash of the git commit that the test was run on.
+* The final 20 bytes contain the hash of the git commit to which the seed applies.
 
 ## VOPR Hub Steps
 
