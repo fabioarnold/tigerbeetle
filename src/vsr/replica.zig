@@ -1024,7 +1024,7 @@ pub fn Replica(
             });
 
             var v: ?u32 = null;
-            var k: ?u64 = null; // This represents `commit_min` according to each replica.
+            var k: ?u64 = null; // The highest `commit_min` from any replica.
             var latest = Header.reserved(self.cluster, 0);
 
             for (self.do_view_change_from_all_replicas) |received, replica| {
@@ -1076,13 +1076,15 @@ pub fn Replica(
                 if (received) |m| {
                     for (self.message_body_as_headers(m)) |*h| {
                         if (h.op <= m.header.commit) {
+                            log.debug("{}: on_do_view_change: op={} committed on replica={}", .{
+                                self.replica,
+                                h.op,
+                                m.header.replica,
+                            });
                             if (self.journal.header_with_op_and_checksum(h.op, h.checksum)) |_| {
-                                log.debug("{}: on_do_view_change: op={} committed on replica={}", .{
-                                    self.replica,
-                                    h.op,
-                                    m.header.replica,
-                                });
+                                // Already known.
                             } else {
+                                // Replace it with the committed version.
                                 self.journal.set_header_as_dirty(h);
                             }
                         } else {
@@ -4327,7 +4329,7 @@ pub fn Replica(
             assert(message.header.op == self.op);
             assert(message.header.op == self.message_body_as_headers(message)[0].op);
             // Each replica must advertise its own commit number, so that the primary can know which
-            // headers must be repaired in its own log. Otherwise, a gap in the log may prevent the
+            // headers must be replaced in its own log. Otherwise, a gap in the log may prevent the
             // primary from repairing its own log adequately, resulting in the log being forked if
             // the primary also discards uncommitted operations.
             // It is also safe not to use `commit_max` here because the new primary will assume that
