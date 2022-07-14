@@ -3637,37 +3637,6 @@ pub fn Replica(
             return true;
         }
 
-        /// If we repair this header, then would this break the hash chain only to our immediate right?
-        /// This offers a weak guarantee compared to `repair_header_would_connect_hash_chain()` below.
-        /// However, this is useful for allowing repairs when the hash chain is sparse.
-        fn repair_header_would_break_hash_chain_with_next_entry(
-            self: *Self,
-            header: *const Header,
-        ) bool {
-            if (self.journal.previous_entry(header)) |previous| {
-                self.panic_if_hash_chain_would_break_in_the_same_view(previous, header);
-            }
-
-            if (self.journal.next_entry(header)) |next| {
-                self.panic_if_hash_chain_would_break_in_the_same_view(header, next);
-
-                if (header.checksum == next.parent) {
-                    assert(header.view <= next.view);
-                    assert(header.op + 1 == next.op);
-                    // We don't break with `next` but this is no guarantee that `next` does not
-                    // break.
-                    return false;
-                } else {
-                    // If the journal has wrapped, then err in favor of a break regardless of op
-                    // order:
-                    return true;
-                }
-            }
-
-            // We are not completely sure since there is no entry to the immediate right:
-            return false;
-        }
-
         /// If we repair this header, would this connect the hash chain through to the latest op?
         /// This offers a strong guarantee that may be used to replace an existing op.
         ///
