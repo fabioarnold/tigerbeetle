@@ -509,7 +509,8 @@ pub fn Journal(comptime Replica: type, comptime Storage: type) type {
 
         /// Copies latest headers between `op_min` and `op_max` (both inclusive) as fit in `dest`.
         /// Reverses the order when copying so that latest headers are copied first, which protects
-        /// against the callsite slicing the buffer the wrong way and incorrectly.
+        /// against the callsite slicing the buffer the wrong way and incorrectly, and which is
+        /// required by message handlers that use the hash chain for repairs.
         /// Skips .reserved headers (gaps between headers).
         /// Zeroes the `dest` buffer in case the copy would underflow and leave a buffer bleed.
         /// Returns the number of headers actually copied.
