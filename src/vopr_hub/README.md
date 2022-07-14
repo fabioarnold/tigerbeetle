@@ -1,4 +1,4 @@
-# VOPR Hub
+# The VOPR Hub
 
 *The VOPR Hub collects the seeds for crash, liveness and correctness reports from the VOPR simulators running permanently in CI or on local dev machines. The VOPR Hub then checks out that commit, replays the seed locally in Debug mode, collects the logs, and automatically creates a GitHub issue, also deduplicating against existing issues if necessary.*
 
@@ -15,7 +15,7 @@ If the VOPR discovers a failing seed it creates a bug report in the format of a 
 * 8 bytes are reserved for the seed.
 * The final 20 bytes contain the hash of the git commit to which the seed applies.
 
-## VOPR Hub Logic
+## Hub Logic
 
 The hub listens for bug reports sent by any VOPR via TCP.
 
