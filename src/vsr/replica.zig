@@ -894,7 +894,9 @@ pub fn Replica(
             }
 
             if (self.status == .view_change and !self.do_view_change_quorum) {
-                log.debug("{}: on_repair: ignoring (view change, waiting for quorum)", .{self.replica});
+                log.debug("{}: on_repair: ignoring (view change, waiting for quorum)", .{
+                    self.replica,
+                });
                 return;
             }
 
@@ -3548,98 +3550,88 @@ pub fn Replica(
             }
 
             if (header.op > self.op) {
-                log.debug("{}: repair_header: false (advances self.op={})", .{
+                log.debug("{}: repair_header: op={} checksum={} (advances hash chain head)", .{
                     self.replica,
-                    self.op,
+                    header.op,
+                    header.checksum,
                 });
                 return false;
-            } else if (header.op == self.op) {
-                if (self.journal.header_with_op_and_checksum(self.op, header.checksum)) |_| {
-                    // Fall through below to check if self.op is uncommitted AND reordered,
-                    // which we would see by the presence of an earlier op with higher view number,
-                    // that breaks the chain with self.op. In this case, we must skip the repair to
-                    // avoid overwriting any overlapping op.
-                } else {
-                    log.debug("{}: repair_header: false (changes self.op={})", .{
-                        self.replica,
-                        self.op,
-                    });
-                    return false;
-                }
+            } else if (header.op == self.op and !self.journal.has(header)) {
+                log.debug("{}: repair_header: op={} checksum={} (changes hash chain head)", .{
+                    self.replica,
+                    header.op,
+                    header.checksum,
+                });
+                return false;
             }
 
-            if (self.journal.header_for_entry(header)) |existing| {
-                assert(existing.op == header.op);
-
-                // Do not replace any existing op lightly as doing so may impair durability and even
-                // violate correctness by undoing a prepare already acknowledged to the leader:
+            if (self.journal.header_for_prepare(header)) |existing| {
                 if (existing.checksum == header.checksum) {
-                    const slot = self.journal.slot_with_header(header).?;
-                    if (!self.journal.dirty.bit(slot)) {
-                        log.debug("{}: repair_header: op={} false (checksum clean)", .{
+                    if (self.journal.has_clean(header)) {
+                        log.debug("{}: repair_header: op={} checksum={} (checksum clean)", .{
                             self.replica,
                             header.op,
+                            header.checksum,
                         });
                         return false;
+                    } else {
+                        log.debug("{}: repair_header: op={} checksum={} (checksum dirty)", .{
+                            self.replica,
+                            header.op,
+                            header.checksum,
+                        });
                     }
-
-                    log.debug("{}: repair_header: op={} exists, checksum dirty", .{
-                        self.replica,
-                        header.op,
-                    });
                 } else if (existing.view == header.view) {
                     // The journal must have wrapped:
-                    // We expect that the same view and op will have the same checksum.
+                    // We expect that the same view and op would have had the same checksum.
                     assert(existing.op != header.op);
-
                     if (existing.op > header.op) {
-                        log.debug("{}: repair_header: op={} false (view has newer op)", .{
+                        log.debug("{}: repair_header: op={} checksum={} (same view, newer op)", .{
                             self.replica,
                             header.op,
+                            header.checksum,
                         });
-                        return false;
+                    } else {
+                        log.debug("{}: repair_header: op={} checksum={} (same view, older op)", .{
+                            self.replica,
+                            header.op,
+                            header.checksum,
+                        });
                     }
-
-                    log.debug("{}: repair_header: op={} exists, view has older op", .{
-                        self.replica,
-                        header.op,
-                    });
                 } else {
                     assert(existing.view != header.view);
                     assert(existing.op == header.op or existing.op != header.op);
 
-                    if (!self.repair_header_would_connect_hash_chain(header)) {
-                        // We cannot replace this op until we are sure that doing so would not
-                        // violate any prior commitments made to the leader.
-                        log.debug("{}: repair_header: op={} false (exists)", .{
-                            self.replica,
-                            header.op,
-                        });
-                        return false;
-                    }
-
-                    log.debug("{}: repair_header: op={} exists, connects hash chain", .{
+                    log.debug("{}: repair_header: op={} checksum={} (different view)", .{
                         self.replica,
                         header.op,
+                        header.checksum,
                     });
                 }
             } else {
-                log.debug("{}: repair_header: op={} gap", .{ self.replica, header.op });
-            }
-
-            // Caveat: Do not repair an existing op or gap if doing so would break the hash chain:
-            if (self.repair_header_would_break_hash_chain_with_next_entry(header)) {
-                log.debug("{}: repair_header: op={} false (breaks hash chain)", .{
+                log.debug("{}: repair_header: op={} checksum={} (gap)", .{
                     self.replica,
                     header.op,
+                    header.checksum,
                 });
-                return false;
             }
 
             // TODO Snapshots: Skip if this header is already snapshotted.
 
             assert(header.op < self.op or
                 self.journal.header_with_op(self.op).?.checksum == header.checksum);
+
+            if (!self.repair_header_would_connect_hash_chain(header)) {
+                // We cannot replace this op until we are sure that this would not:
+                // 1. undermine any prior prepare_ok guarantee made to the primary, and
+                // 2. leak stale ops back into our in-memory headers (and so into a view change).
+                log.debug("{}: repair_header: op={} checksum={} (disconnected from hash chain)", .{
+                    self.replica,
+                    header.op,
+                    header.checksum,
+                });
+                return false;
+            }
 
             self.journal.set_header_as_dirty(header);
             return true;
@@ -3676,17 +3668,14 @@ pub fn Replica(
             return false;
         }
 
-        /// If we repair this header, then would this connect the hash chain through to the latest
-        /// op? This offers a strong guarantee that may be used to replace or overlap an existing
-        /// op.
+        /// If we repair this header, would this connect the hash chain through to the latest op?
+        /// This offers a strong guarantee that may be used to replace an existing op.
         ///
         /// Here is an example of what could go wrong if we did not check for complete connection:
         ///
         /// 1. We do a prepare that's going to be committed.
-        /// 2. We do a stale prepare to the right of this, ignoring the hash chain break to the
-        ///    left.
-        /// 3. We do another stale prepare that replaces the first op because it connects to the
-        ///    second.
+        /// 2. We do a stale prepare to the right, ignoring the hash chain break to the left.
+        /// 3. We do another stale prepare that replaces the first since it connects to the second.
         ///
         /// This would violate our quorum replication commitment to the leader.
         /// The mistake in this example was not that we ignored the break to the left, which we must

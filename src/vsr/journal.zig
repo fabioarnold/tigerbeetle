@@ -378,14 +378,15 @@ pub fn Journal(comptime Replica: type, comptime Storage: type) type {
             return self.slot_with_op(header.op);
         }
 
-        /// Returns any existing entry at the location indicated by header.op.
-        /// This existing entry may have an older or newer op number.
-        pub fn header_for_entry(self: *const Self, header: *const Header) ?*const Header {
+        /// Returns any existing header at the location indicated by header.op.
+        /// The existing header may have an older or newer op number.
+        pub fn header_for_prepare(self: *const Self, header: *const Header) ?*const Header {
             assert(header.command == .prepare);
             return self.header_for_op(header.op);
         }
 
         /// We use `op` directly to index into the headers array and locate ops without a scan.
+        /// The existing header may have an older or newer op number.
         pub fn header_for_op(self: *const Self, op: u64) ?*const Header {
             // TODO Snapshots
             const slot = self.slot_for_op(op);
@@ -1450,6 +1451,7 @@ pub fn Journal(comptime Replica: type, comptime Storage: type) type {
                 header.op,
                 header.checksum,
             });
+
             const slot = self.slot_for_header(header);
 
             if (self.has(header)) {
