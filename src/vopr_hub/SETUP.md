@@ -75,25 +75,25 @@ WantedBy=multi-user.target
 Start the VOPR Hub service:
 ```bash
 systemctl start voprhub.service
-#Check it is up
+# Check that we have liftoff.
 systemctl status voprhub.service
 # View logs e.g.
 journalctl -f -n 100 -u voprhub.service
 ```
 
-Go back to root user
+Go back to the `root` user:
 ```bash
 exit
 ```
 
 ## Set Up the VOPR Component
 
-Become voprrunner user
+Become the `voprrunner` user:
 ```bash
 su - voprrunner
 ```
 
-Create a script that will be used by the service to pull the latest code and run the VOPR.
+Create a script that will be used by the service to pull the latest code and run the VOPR:
 ```bash
 sudo nano vopr_runner.sh
 ```
@@ -103,33 +103,33 @@ The file should contain the following (including an actual IP address):
 #!/usr/bin/env bash
 set -e
 
-# Fetch the latest code
+# Fetch the latest code:
 git pull
 
-# Run the VOPR
+# Run the VOPR a few times before we go back to the top:
 zig/zig run ./src/vopr.zig -- --send="<address>" --simulations=5
 ```
 
-Create four tigerbeetle directories here.
+Create four `tigerbeetle` directories here.
 
 Note that the number of directories corresponds to the number of service instances that will run.
 
-Ideally, this number should be increased/decreased to be two less than the number of CPU cores available.
+Ideally, this number should be increased/decreased to be two less than the number of CPU cores available. The simulators burn CPU, and so this allocation leaves a core available for the rest of the system, plus a core for the hub itself.
 ```bash
 git clone https://github.com/coilhq/tigerbeetle.git
-# Install Zig
+# Install Zig:
 cd ./tigerbeetle
 ./scripts/install_zig.sh
 cd ../
 # Copy this directory to get four tigerbeetle directories.
-cp -r tigerbeetle tigerbeetle1 # repeat with incrementing values for the other instances.
-# Can remove original folder
+cp -r tigerbeetle tigerbeetle1 # Repeat with incrementing values for the other instances. E.g. 2,3,4.
+# Now we can remove the original directory.
 rm -r tigerbeetle
 ```
 
-Create a systemd service unit file.
+Create a `systemd` service unit file.
 
-Naming the file vopr@.service means it acts as a template that can reuse the same file to run different services that each target their own directories.
+Naming the file `vopr@.service` means that it acts as a template that can reuse the same file to run different services that each target their own directories.
 ```bash
 sudo nano /etc/systemd/system/vopr@.service
 ```
