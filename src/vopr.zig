@@ -15,6 +15,10 @@ const usage = fmt.comptimePrint(
     \\
     \\  vopr [-h | --help]
     \\
+    \\  vopr [--send] [--simulations=<count>]
+    \\
+    \\  vopr [--send] --seed=<int> [--build-mode=<mode>]
+    \\
     \\Options:
     \\
     \\  -h, --help
@@ -59,7 +63,7 @@ const Report = struct {
 
 const Flags = struct {
     seed: ?u64,
-    send_address: ?net.Address, // A null value indicates that the send fag is not set.
+    send_address: ?net.Address, // A null value indicates that the "send" flag is not set.
     build_mode: std.builtin.Mode,
     simulations: u32,
 };
@@ -143,6 +147,8 @@ fn build_simulator(
     }) catch |err| {
         fatal("unable to build the simulator binary. Error: {}", .{err});
     };
+    defer allocator.free(exec_result.stdout);
+    defer allocator.free(exec_result.stderr);
 
     switch (exec_result.term) {
         .Exited => |code| {
@@ -253,6 +259,8 @@ fn check_git_status(allocator: mem.Allocator) void {
     }) catch |err| {
         fatal("unable to determine TigerBeetle's git status. Error: {}", .{err});
     };
+    defer allocator.free(exec_result.stdout);
+    defer allocator.free(exec_result.stderr);
 
     var git_status = exec_result.stdout;
     if (mem.containsAtLeast(u8, git_status, 1, "nothing to commit, working tree clean") and
@@ -278,10 +286,8 @@ fn send_report(allocator: mem.Allocator, address: net.Address, bug: Bug, seed: u
     assert(message.bug == 1 or message.bug == 2 or message.bug == 3);
 
     // Seed
-    var seed_integer_value: u64 = message.seed;
     // Zig stores value as Little Endian when VOPR Hub is expecting Big Endian.
-    seed_integer_value = @byteSwap(u64, seed_integer_value);
-    const seed_byte_array: [8]u8 = @bitCast([8]u8, seed_integer_value);
+    const seed_bytes: [8]u8 = @bitCast([8]u8, @byteSwap(u64, message.seed));
 
     // Leave the first 16 bytes open to store the first half of a SHA256 hash of the message.
     byte_array[16] = message.bug;
@@ -340,6 +346,8 @@ fn create_report(allocator: mem.Allocator, bug: Bug, seed: u64) Report {
     }) catch |err| {
         fatal("unable to extract TigerBeetle's git commit hash. Error: {}", .{err});
     };
+    defer allocator.free(exec_result.stdout);
+    defer allocator.free(exec_result.stderr);
 
     var git_log = exec_result.stdout;
     std.debug.print("git commit that was retrieved: {s}\n", .{git_log[7..47].*});
