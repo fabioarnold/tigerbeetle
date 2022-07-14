@@ -1,4 +1,5 @@
-# VOPR and VOPR Hub Setup
+# VOPR Hub Setup
+* Follow these instructions to setup the VOPR Hub, along with several full-time VOPR simulators, on a dedicated testing machine.*
 Install Go:
 ```bash
 sudo add-apt-repository ppa:longsleep/golang-backports
@@ -6,11 +7,11 @@ sudo apt update
 sudo apt install golang-go
 ```
 
-Add two users, namely voprrunner and voprhub. This creates separation between the two different functions of the server.
+Add two users, namely `voprrunner` and `voprhub`. This creates *separation of concerns* between the two functions of the server.
 
-The voprrunner will continuously run the VOPR and send any bugs to the VOPR Hub.
+The `voprrunner` will continuously run the VOPR and send any bugs to the VOPR Hub.
 
-This will require setting passwords for the respective users
+This will require setting passwords for the respective users:
 
 ```bash
 sudo adduser voprhub
@@ -21,30 +22,30 @@ sudo usermod -aG sudo voprrunner
 
 ## Set Up the VOPR Hub Component
 
-Become the voprhub user
+Become the `voprhub` user:
 ```bash
 su - voprhub
 ```
 
-Clone tigerbeetle
+Clone `tigerbeetle`:
 ```bash
 git clone https://github.com/coilhq/tigerbeetle.git
 ```
 
-Install Zig
+Install Zig:
 ```bash
 cd ./tigerbeetle
 ./scripts/install_zig.sh
 cd ../
 ```
 
-Create a second tigerbeetle directory here inside the hub directory which will run the VOPR Hub, then the initial tigerbeetle directory will be needed to replay seeds that the hub receives.
+Create a second `tigerbeetle` directory here inside the hub directory which will run the VOPR Hub. The initial `tigerbeetle` directory will be needed to replay any seeds that the hub receives.
 ```bash
 mkdir hub
 cp -r tigerbeetle hub/tigerbeetle
 ```
 
-Create a systemd service unit file for the VOPR Hub.
+Create a `systemd` service unit file for the hub:
 ```bash
 sudo nano /etc/systemd/system/voprhub.service
 ```

@@ -31,14 +31,14 @@ Once the message is determined to be valid then a reply of "1" is sent back to t
 
 ### Message Processing
 
-When the VOPR Hub replays a seed it will save the logs to disk. This way each issue can be tracked to see if it has already been submitted. For correctness bugs (bug 1) and liveness bugs (bug 2) the file name is simply bug_seed_commithash. Correctness and liveness bugs can be deduped immediately by checking for their file name on disk. Crash bugs (bug 3) do not include the seed in their file name but do have an additional field which is the hash of the stack trace of the issue (bug_commithash_stacktracehash). Therefore they can only be deduped after the seed has been replayed and logs have been generated.
+When the hub replays a seed it will save the logs to disk. This way each issue can be tracked to see if it has already been submitted. For correctness bugs (bug 1) and liveness bugs (bug 2) the format of the file name is `bug_seed_commit`. Correctness and liveness bugs can be deduped immediately by checking for their file name on disk. Crash bugs (bug 3) do not include the seed in their file name but do have an additional field which is the hash of the stack trace of the issue (`bug_commit_stacktracehash`) since multiple seeds may all trip the same assertion, leading to the same stack trace. Therefore, crash bugs can only be deduped after the seed has been replayed and the logs have been generated.
 
-If no duplicate issue has been found then the VOPR Hub will replay the seed in Debug mode and capture the logs. In order to do this it must first checkout the correct git commit. This step requires that the reported commit is available on the tigerbeetle repository.
+If no duplicate issue has been found then the hub will replay the seed in `Debug` mode and capture the logs. In order to do this it must first checkout the correct git commit. This step requires that the reported commit is available in the `tigerbeetle` repository.
 
 ### Create an Issue
 
-Once the simulation has completed the stack trace is extracted and parsed to remove the directory structure and any memory addresses so that it is made to be deterministic. This way it can be hashed and used to dedupe any crash bugs that may have already been logged. Crash bugs include a hash of the stack trace in their filename to deduplicate assertion crashes for the same call graph. However, we do not do this for correctness bugs, since these are always detected by the same set of panics in the simulator, but may have different reasons for reaching them.
+Once the simulation has completed the stack trace is extracted and parsed to remove the local directory structure and any local memory addresses so that it is not only deterministic across machines, but also anonymized. This way it can be hashed and used to dedupe any crash bugs that may have already been reported. While crash bugs include a hash of the stack trace in their filename to deduplicate assertion crashes for the same call graph, we do not do this for correctness bugs, since these are always detected by the same set of panics in the simulator, at the same call site, but there may be different causes for them.
 
 A copy of the issue is written to disk and a GitHub issue is also automatically generated. The issue contains the bug type, seed, commit hash, parameters of the VOPR, stack trace (if there is one), debug logs, and a timestamp.
 
-Note that if the VOPR Hub replays a seed and it passes unexpectedly then an issue will still be created with a note explaining that the seed passed.
+If the VOPR Hub replays a seed and it passes unexpectedly then, to err on the safe side, a GitHub issue will still be created with a warning explaining that the seed passed.
