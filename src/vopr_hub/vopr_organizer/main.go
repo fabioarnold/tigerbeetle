@@ -18,6 +18,7 @@ var (
 	tigerbeetle_directory string
 	repository_url        string
 	num_voprs             int
+	current_vopr          int
 )
 
 type Label struct {
@@ -59,14 +60,14 @@ func set_environment_variables() {
 		os.Exit(1)
 	}
 
-	str, found := os.LookupEnv("NUM_VOPRS")
+	num_voprs_str, found := os.LookupEnv("NUM_VOPRS")
 	if !found {
 		log_error("Could not find NUM_VOPRS environmental variable")
 		os.Exit(1)
-	} else if str != "" {
+	} else if num_voprs_str != "" {
 		// string to int
 		var err error
-		num_voprs, err = strconv.Atoi(str)
+		num_voprs, err = strconv.Atoi(num_voprs_str)
 		if err != nil {
 			log_error("unable to convert num_voprs to a an integer value")
 			panic(err.Error())
@@ -77,6 +78,27 @@ func set_environment_variables() {
 		log_debug(fmt.Sprintf("num_voprs set as %d", num_voprs))
 	} else {
 		log_error("NUM_VOPRS was empty")
+		os.Exit(1)
+	}
+
+	current_vopr_str, found := os.LookupEnv("CURRENT_VOPR")
+	if !found {
+		log_error("Could not find CURRENT_VOPR environmental variable")
+		os.Exit(1)
+	} else if current_vopr_str != "" {
+		// string to int
+		var err error
+		current_vopr, err = strconv.Atoi(current_vopr_str)
+		if err != nil {
+			log_error("unable to convert current_vopr to a an integer value")
+			panic(err.Error())
+		} else if current_vopr <= 0 {
+			log_error("CURRENT_VOPR must be an integer greater than 0")
+			os.Exit(1)
+		}
+		log_debug(fmt.Sprintf("current_vopr set as %d", current_vopr))
+	} else {
+		log_error("CURRENT_VOPR was empty")
 		os.Exit(1)
 	}
 }
@@ -200,7 +222,7 @@ func get_vopr_assignments(vopr_branches []string) []string {
 	} else {
 		i := 0
 		for i < num_voprs {
-			
+
 			vopr_assignments = append(vopr_assignments, "main")
 			i++
 		}
@@ -246,8 +268,8 @@ func main() {
 	// TODO remove - debugging
 	fmt.Println(vopr_assignments)
 
-	for index, element := range vopr_assignments {
-		// The tigerbeetle directories are labelled from 1
-		checkout_branch(element, fmt.Sprintf("%s%d", tigerbeetle_directory, index+1))
+	// TODO: index directories from 0
+	if current_vopr <= len(vopr_assignments) && current_vopr >= 1 {
+		checkout_branch(vopr_assignments[current_vopr-1], fmt.Sprintf("%s%d", tigerbeetle_directory, current_vopr))
 	}
 }

@@ -103,6 +103,13 @@ The file should contain the following (including an actual IP address):
 #!/usr/bin/env bash
 set -e
 
+# Checkout the correct branch
+export TIGERBEETLE_DIRECTORY="/home/voprrunner/tigerbeetle"
+export REPOSITORY_URL="https://api.github.com/repos/coilhq/tigerbeetle/pulls"
+export NUM_VOPRS="4"
+export CURRENT_VOPR=$1
+go run ./src/vopr_hub/vopr_organizer/main.go
+
 # Fetch the latest code:
 git pull
 
@@ -144,7 +151,7 @@ PartOf=vopr.target
 
 User=voprrunner
 WorkingDirectory=/home/voprrunner/tigerbeetle%i
-ExecStart=/home/voprrunner/vopr_runner.sh
+ExecStart=/home/voprrunner/vopr_runner.sh %i
 Restart=on-success
 
 [Install]
