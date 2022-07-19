@@ -2520,6 +2520,49 @@ pub fn Replica(
             return message.ref();
         }
 
+        /// Discards headers during a view change that may not be canonical, if the new primary did
+        /// not participate in any previous view changes that may have removed or changed these ops.
+        /// This is required for correctness and liveness, to ensure that:
+        /// 1. disconnected headers do not remain in place in lieu of gaps, so that
+        /// 2. gaps may be discarded by discard_uncommitted_headers().
+        fn discard_uncanonical_headers(self: *Self, view_normal_canonical: u64) void {
+            assert(self.replica_count > 1);
+            assert(self.status == .view_change);
+            assert(self.leader_index(self.view) == self.replica);
+            assert(self.do_view_change_quorum);
+            assert(!self.repair_timeout.ticking);
+            assert(self.journal.header_with_op(self.op) != null);
+            assert(self.view_normal <= view_normal_canonical);
+
+            if (self.view_normal == view_normal_canonical) return;
+
+            const remove_op_count = std.math.min(
+                // Do not reset any ops that we have already committed.
+                self.op - self.commit_min,
+                // The number of uncommitted ops cannot be more than the length of the pipeline.
+                // Do not reset any ops that we did not include in our do_view_change message.
+                config.pipeline_max,
+            );
+
+            assert(remove_op_count <= config.pipeline_max);
+            if (remove_op_count == 0) return;
+
+            const remove_op_min = self.op -| (remove_op_count - 1); // Inclusive.
+
+            log.debug("{}: on_do_view_change: removing ops={}..{} (not canonical)", .{
+                self.replica,
+                remove_op_min,
+                self.op,
+            });
+
+            assert(remove_op_min <= self.op);
+            assert(remove_op_min > self.commit_min);
+            assert(remove_op_min + config.pipeline_max - 1 >= self.op);
+
+            // If any ops are canonical, then the replica's do_view_change message will repair them.
+            self.journal.remove_entries_from(remove_op_min);
+        }
+
         /// Discards uncommitted headers during a view change before the primary starts the view.
         /// This is required to maximize availability in the presence of storage faults.
         /// Refer to the CTRL protocol from Protocol-Aware Recovery for Consensus-Based Storage.
@@ -4553,9 +4596,13 @@ pub fn Replica(
                 }
             }
 
+            assert(v.? >= self.view_normal);
+
+            // Any headers removed must be a subset of the replica's do_view_change message, and
+            // must be removed before set_op_and_commit_max() below, since that may change self.op.
+            self.discard_uncanonical_headers(v.?);
             self.set_op_and_commit_max(n.?, k.?, "on_do_view_change");
 
-            assert(v.? >= self.view_normal);
             return v.?;
         }
 
