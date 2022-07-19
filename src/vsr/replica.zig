@@ -2559,8 +2559,8 @@ pub fn Replica(
                 log.debug("{}: discard_uncommitted_headers: op={} gap", .{ self.replica, op });
 
                 assert(op > self.commit_max);
-                self.journal.remove_entries_from(op);
                 self.op = op - 1;
+                self.journal.remove_entries_from(op);
 
                 const slot = self.journal.slot_for_op(op);
                 assert(self.journal.header_for_op(op) == null);
@@ -2592,8 +2592,8 @@ pub fn Replica(
                 self.view,
             });
 
-            self.journal.remove_entries_from(op);
             self.op = op - 1;
+            self.journal.remove_entries_from(op);
 
             assert(self.journal.header_for_op(op) == null);
             assert(!self.journal.dirty.bit(slot));
@@ -3953,6 +3953,11 @@ pub fn Replica(
 
         fn replace_header(self: *Self, header: *Header) void {
             assert(header.command == .prepare);
+            assert(header.op <= self.op);
+
+            // Do not replace any committed op. We use an early return rather than an assert,
+            // beacuse our journal may be ahead and may not have the op any more.
+            if (header.op <= self.commit_min) return;
 
             // Do not set an op as dirty if we already have it exactly because:
             // 1. this would trigger a repair and delay the view change, or worse,
@@ -4171,10 +4176,10 @@ pub fn Replica(
             assert(message.header.view == self.view);
             assert(message.header.op == self.op);
             assert(message.header.op == message_body_as_headers(message)[0].op);
-            // Each replica must advertise its own commit number, so that the primary can know which
-            // headers must be replaced in its own log. Otherwise, a gap in the log may prevent the
-            // primary from repairing its own log adequately, resulting in the log being forked if
-            // the primary also discards uncommitted operations.
+            // Each replica must advertise its own commit number, so that the new primary can know
+            // which headers must be replaced in its log. Otherwise, a gap in the log may prevent
+            // the new primary from repairing its log, resulting in the log being forked if the new
+            // primary also discards uncommitted operations.
             // It is also safe not to use `commit_max` here because the new primary will assume that
             // operations after the highest `commit_min` may yet have been committed before the old
             // primary crashed. The new primary will use the NACK protocol to be sure of a discard.
@@ -4288,6 +4293,7 @@ pub fn Replica(
                     assert(message.header.view == self.view);
                     assert(message.header.replica == self.replica);
                     assert(message.header.op == self.op);
+                    assert(message.header.commit == self.commit_min);
                     assert(replica == self.leader_index(self.view));
                 },
                 .start_view => switch (self.status) {
@@ -4405,6 +4411,7 @@ pub fn Replica(
             const previous_commit_max = self.commit_max;
 
             self.op = op;
+            self.journal.remove_entries_from(self.op + 1);
 
             // Crucially, we must never rewind `commit_max` (and then `commit_min`) because
             // `commit_min` represents what we have already applied to our state machine:
@@ -4412,8 +4419,6 @@ pub fn Replica(
 
             assert(self.commit_min <= self.commit_max);
             assert(self.commit_max <= self.op);
-
-            self.journal.remove_entries_from(self.op + 1);
 
             log.debug("{}: {s}: view={} op={}..{} commit={}..{}", .{
                 self.replica,
@@ -4432,7 +4437,8 @@ pub fn Replica(
             // First, set all the canonical headers from the replica(s) with highest `view_normal`:
             for (self.do_view_change_from_all_replicas) |received| {
                 if (received) |message| {
-                    var view_normal = @intCast(u32, message.header.timestamp);
+                    const view_normal = @intCast(u32, message.header.timestamp);
+                    // The view in which this replica's status was normal must be before this view.
                     assert(view_normal < message.header.view);
 
                     if (view_normal < view_normal_canonical) continue;
@@ -4456,7 +4462,7 @@ pub fn Replica(
             // Now that the canonical headers are all in place, repair any other headers:
             for (self.do_view_change_from_all_replicas) |received| {
                 if (received) |message| {
-                    var view_normal = @intCast(u32, message.header.timestamp);
+                    const view_normal = @intCast(u32, message.header.timestamp);
                     assert(view_normal < message.header.view);
 
                     if (view_normal == view_normal_canonical) continue;
@@ -4519,7 +4525,7 @@ pub fn Replica(
                     // The view when this replica was last in normal status, which:
                     // * may be higher than the view in any of the prepare headers.
                     // * must be lower than the view of this view change.
-                    var view_normal = @intCast(u32, message.header.timestamp);
+                    const view_normal = @intCast(u32, message.header.timestamp);
                     assert(view_normal < message.header.view);
 
                     log.debug(
