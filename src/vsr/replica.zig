@@ -3165,22 +3165,22 @@ pub fn Replica(
         }
 
         /// Finds the header with the highest op number in a slice of headers from a replica.
+        /// The headers must be continuous, in reverse order, all connected, and with no gaps.
         fn op_highest(headers: []const Header) u64 {
             assert(headers.len > 0);
 
-            var op: ?u64 = null;
-            for (headers) |header| {
+            for (headers) |header, index| {
                 assert(header.valid_checksum());
                 assert(header.invalid() == null);
                 assert(header.command == .prepare);
 
-                if (op == null or header.op > op.?) {
-                    // We are simply trying to find the highest op number in the replica's log.
-                    // We therefore do not compare views here.
-                    op = header.op;
+                if (index > 0) {
+                    assert(header.op + 1 == headers[index - 1].op);
+                    assert(header.checksum == headers[index - 1].parent);
                 }
             }
-            return op.?;
+
+            return headers[0].op;
         }
 
         /// Panics if immediate neighbors in the same view would have a broken hash chain.
