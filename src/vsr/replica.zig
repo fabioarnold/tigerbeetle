@@ -3951,6 +3951,8 @@ pub fn Replica(
             }
         }
 
+        /// Replaces the header if the header is different and not already committed.
+        /// The caller must ensure that the header is trustworthy.
         fn replace_header(self: *Self, header: *Header) void {
             assert(header.command == .prepare);
             assert(header.op <= self.op);
