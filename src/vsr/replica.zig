@@ -2601,6 +2601,8 @@ pub fn Replica(
 
                 log.debug("{}: discard_uncommitted_headers: op={} gap", .{ self.replica, op });
 
+                // TODO Find the op before the lowest gap, then call remove_entries_from() once.
+                // This will avoid iterating over all journal headers multiple times to remove ops.
                 assert(op > self.commit_max);
                 self.op = op - 1;
                 self.journal.remove_entries_from(op);
