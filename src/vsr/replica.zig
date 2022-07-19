@@ -4575,6 +4575,12 @@ pub fn Replica(
                     const view_normal = @intCast(u32, message.header.timestamp);
                     assert(view_normal < message.header.view);
 
+                    if (replica == self.replica) {
+                        assert(view_normal == self.view_normal);
+                        assert(message.header.op == self.op);
+                        assert(message.header.commit == self.commit_min);
+                    }
+
                     log.debug(
                         "{}: on_do_view_change: " ++
                             "replica={} view_normal={} op={} commit_min={}",
