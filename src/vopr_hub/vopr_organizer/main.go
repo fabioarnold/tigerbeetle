@@ -34,6 +34,10 @@ type Issue struct {
 	Head   Head    `json:"head"`
 }
 
+type Commit struct {
+	Sha string `json:"sha"`
+}
+
 func set_environment_variables() {
 	var found bool
 	tigerbeetle_directory, found = os.LookupEnv("TIGERBEETLE_DIRECTORY")
@@ -105,7 +109,8 @@ func set_environment_variables() {
 
 // Fetch available branches from GitHub and checkout the correct branch if it exists.
 func checkout_branch(branch string, tigerbeetle_directory string) error {
-	// Git commands need to be run with the particular TigerBeetle directory as their working_directory
+	// Git commands need to be run with the particular TigerBeetle directory as their
+	// working_directory
 	fetch_command := exec.Command("git", "fetch", "--all")
 	fetch_command.Dir = tigerbeetle_directory
 	error := fetch_command.Run()
@@ -145,9 +150,9 @@ func checkout_branch(branch string, tigerbeetle_directory string) error {
 	return nil
 }
 
-func get_pull_requests() []Issue {
+func get_pull_requests(num_posts int, page_number int) []Issue {
 	pull_requests := []Issue{}
-	res, err := http.Get(repository_url)
+	res, err := http.Get(fmt.Sprintf("%s/pulls?per_page=%d&page=%d", repository_url, num_posts, page_number))
 	if err != nil {
 		log_error("unable to create get request")
 		panic(err.Error())
@@ -155,7 +160,13 @@ func get_pull_requests() []Issue {
 	body, err := io.ReadAll(res.Body)
 	res.Body.Close()
 	if res.StatusCode > 299 {
-		log_error(fmt.Sprintf("Response failed with status code: %d and\nbody: %s\n", res.StatusCode, body))
+		log_error(
+			fmt.Sprintf(
+				"Response failed with status code: %d and\nbody: %s\n",
+				res.StatusCode,
+				body,
+			),
+		)
 		panic(err.Error())
 	}
 	if err != nil {
@@ -168,66 +179,134 @@ func get_pull_requests() []Issue {
 		log_error("unable to unmarshall json")
 		panic(err.Error())
 	}
+	fmt.Printf("Num PRs: %d\n", len(pull_requests))
 	return pull_requests
 }
 
-func get_branch_names(pull_requests []Issue) []string {
-	var vopr_branches []string
+func get_commits(branch_name string) string {
+	commits := []Commit{}
+	res, err := http.Get(fmt.Sprintf("%s/commits?per_page=1&sha=%s", repository_url, branch_name))
+	if err != nil {
+		log_error("unable to create get request")
+		panic(err.Error())
+	}
+	body, err := io.ReadAll(res.Body)
+	res.Body.Close()
+	if res.StatusCode > 299 {
+		log_error(
+			fmt.Sprintf(
+				"Response failed with status code: %d and\nbody: %s\n",
+				res.StatusCode,
+				body,
+			),
+		)
+		panic(err.Error())
+	}
+	if err != nil {
+		log_error("unable to receive a response from GitHub")
+		panic(err.Error())
+	}
 
-	for _, element := range pull_requests {
-		for _, label := range element.Labels {
-			if label.Name == "vopr" {
-				// Branches are returned in the format owner:branch_name.
-				_, branch_name, found := strings.Cut(element.Head.Label, ":")
-				if found && branch_name != "" {
-					vopr_branches = append(vopr_branches, branch_name)
+	err = json.Unmarshal(body, &commits)
+	if err != nil {
+		log_error("unable to unmarshall json")
+		panic(err.Error())
+	}
+
+	if len(commits) > 0 {
+		return commits[0].Sha
+	}
+	return ""
+}
+
+func get_commit_hashes() []string {
+	// This is the GitHub API default.
+	const num_posts int = 30
+	var pull_requests []Issue
+	var vopr_commits []string
+
+	// TODO should I add a high range check like i < 10? That's 300 PRs
+	// num_voprs - 1 because first VOPR always runs on main's latest commit
+	for i := 1; len(vopr_commits) < num_voprs-1; i++ {
+		// Pull requests will be ordered newest to oldest by default.
+		pull_requests = get_pull_requests(num_posts, i)
+
+		for _, element := range pull_requests {
+			for _, label := range element.Labels {
+				if label.Name == "vopr" {
+					// Branches are returned in the format owner:branch_name.
+					_, branch_name, found := strings.Cut(element.Head.Label, ":")
+					if found && branch_name != "" {
+						commit := get_commits(branch_name)
+						if commit != "" {
+							// TODO regex check on commit at time of use in checkout step
+							vopr_commits = append(vopr_commits, commit)
+						}
+					}
+					break
 				}
+			}
+
+			if len(vopr_commits) == num_voprs-1 {
 				break
 			}
 		}
-
-		if len(vopr_branches) == num_voprs {
+		// Exit the loop if there are no more pages of pull requests to be fetched from GitHub.
+		if len(pull_requests) < num_posts {
 			break
 		}
 	}
-	return vopr_branches
+
+	return vopr_commits
 }
 
-func get_vopr_assignments(vopr_branches []string) []string {
-	var num_pull_requests = len(vopr_branches)
+func get_vopr_assignments(vopr_commits []string) []string {
+	var num_pull_requests = len(vopr_commits)
 	var vopr_assignments []string
 
 	if num_pull_requests > 0 {
 		// The first VOPR always runs main
-		vopr_assignments = append(vopr_assignments, "main")
+		commit := get_commits("main")
+		if commit != "" {
+			vopr_assignments = append(vopr_assignments, commit)
+		}
 
 		// This calculates how many times each PR branch will be assigned to a VOPR.
 		var repeats = int((num_voprs - 1) / num_pull_requests)
 		// This calculates how many branches will have an additional assignment.
 		var remainders = (num_voprs - 1) % num_pull_requests
 		i := 1
-		branch_index := 0
+		commit_index := 0
 		for i < num_voprs {
 			for j := 0; j < repeats; j++ {
-				vopr_assignments = append(vopr_assignments, fmt.Sprintf("%s", vopr_branches[branch_index]))
+				vopr_assignments = append(
+					vopr_assignments,
+					fmt.Sprintf("%s", vopr_commits[commit_index]),
+				)
 				i++
 			}
 			if remainders > 0 {
-				vopr_assignments = append(vopr_assignments, fmt.Sprintf("%s", vopr_branches[branch_index]))
+				vopr_assignments = append(
+					vopr_assignments,
+					fmt.Sprintf("%s", vopr_commits[commit_index]),
+				)
 				remainders--
 				i++
 			}
-			branch_index++
+			commit_index++
 		}
 	} else {
-		i := 0
-		for i < num_voprs {
-
-			vopr_assignments = append(vopr_assignments, "main")
-			i++
+		commit := get_commits("main")
+		if commit != "" {
+			i := 0
+			for i < num_voprs {
+				vopr_assignments = append(vopr_assignments, commit)
+				i++
+			}
 		}
 	}
 	return vopr_assignments
+	// TODO: figure out what to do if you get null strings, just use word main?
 }
 
 func log_error(message string) {
@@ -258,18 +337,19 @@ func main() {
 
 	set_environment_variables()
 
-	// Pull requests will be ordered newest to oldest by default.
-	pull_requests := get_pull_requests()
+	// Gets commit hashes for main and up to (NUM_VOPRS -1) PR branches that have the `vopr` label
+	vopr_commits := get_commit_hashes()
 
-	// Gets the names of branches that have the `vopr` label
-	vopr_branches := get_branch_names(pull_requests)
-
-	vopr_assignments := get_vopr_assignments(vopr_branches)
+	// Assigns one commit for each VOPR to run on
+	vopr_assignments := get_vopr_assignments(vopr_commits)
 	// TODO remove - debugging
 	fmt.Println(vopr_assignments)
 
 	// TODO: index directories from 0
 	if current_vopr <= len(vopr_assignments) && current_vopr >= 1 {
-		checkout_branch(vopr_assignments[current_vopr-1], fmt.Sprintf("%s%d", tigerbeetle_directory, current_vopr))
+		checkout_branch(
+			vopr_assignments[current_vopr-1],
+			fmt.Sprintf("%s%d", tigerbeetle_directory, current_vopr),
+		)
 	}
 }

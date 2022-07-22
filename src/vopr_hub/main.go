@@ -16,8 +16,10 @@ import (
 	"crypto/sha256"
 	"encoding/binary"
 	"encoding/hex"
+	"encoding/json"
 	"flag"
 	"fmt"
+	"io"
 	"math"
 	"net"
 	"net/http"
@@ -44,6 +46,14 @@ var (
 	vopr_hub_address          string
 	repository_url            string
 )
+
+type Label struct {
+	Name string `json:"name"`
+}
+
+type Issue struct {
+	Labels []Label `json:"labels"`
+}
 
 // An alias for the vopr_message's byte array
 type vopr_message_byte_array [length_of_vopr_message]byte
@@ -308,6 +318,10 @@ func process(message vopr_message) {
 
 	commit_string := hex.EncodeToString(message.commit[:])
 
+	// Open issues with the 'seed' label will be ordered newest to oldest by default.
+	num_issues := get_issues()
+	fmt.Printf("There are %d issues.", num_issues)
+
 	error := checkout_commit(commit_string, message.hash[:])
 	if error == nil {
 		log_debug("Successfully checked out commit "+commit_string, message.hash[:])
@@ -373,6 +387,33 @@ func is_duplicate_bug_1_and_2(message vopr_message) bool {
 	} else {
 		return false
 	}
+}
+
+func get_issues() int {
+	issues := []Issue{}
+	// TODO use a variable here, labels=seed not enhancement like currently
+	res, err := http.Get("https://api.github.com/repos/coilhq/tigerbeetle/issues?labels=enhancement")
+	if err != nil {
+		log_error("unable to create get request", nil)
+		panic(err.Error())
+	}
+	body, err := io.ReadAll(res.Body)
+	res.Body.Close()
+	if res.StatusCode > 299 {
+		log_error(fmt.Sprintf("Response failed with status code: %d and\nbody: %s\n", res.StatusCode, body), nil)
+		panic(err.Error())
+	}
+	if err != nil {
+		log_error("unable to receive a response from GitHub", nil)
+		panic(err.Error())
+	}
+
+	err = json.Unmarshal(body, &issues)
+	if err != nil {
+		log_error("unable to unmarshall json", nil)
+		panic(err.Error())
+	}
+	return len(issues)
 }
 
 // Filenames are used to uniquely identify issues for deduping purposes.
@@ -549,8 +590,9 @@ func create_github_issue(message vopr_message, output *vopr_output, issue_file_n
 	}
 	// Removes the file path from the name.
 	issue_file_name = strings.Replace(issue_file_name, issue_directory+"/", "", 1)
+	// TODO: use variable for bug type not just bug string
 	issue_contents := fmt.Sprintf(
-		"{ \"title\": \"%s\", \"body\": \"%s\", \"labels\":[] }",
+		"{ \"title\": \"%s\", \"body\": \"%s\", \"labels\":[\"seed\", \"bug\"] }",
 		issue_file_name,
 		body,
 	)
