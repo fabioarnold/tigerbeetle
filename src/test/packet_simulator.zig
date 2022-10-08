@@ -84,6 +84,8 @@ pub fn PacketSimulator(comptime Packet: type) type {
         const Self = @This();
 
         const Data = struct {
+            /// When the packet has been submitted.
+            submit: u64,
             expiry: u64,
             callback: fn (packet: Packet, path: Path) void,
             packet: Packet,
@@ -105,6 +107,9 @@ pub fn PacketSimulator(comptime Packet: type) type {
         partition: []bool,
         replicas: []u8,
         stability: u32,
+
+        on_packet_callback: ?fn (context: ?*anyopaque, packet: Packet, expiry: u64, path: Path) void = null,
+        on_packet_context: ?*anyopaque = null,
 
         pub fn init(allocator: std.mem.Allocator, options: PacketSimulatorOptions) !Self {
             assert(options.one_way_delay_mean >= options.one_way_delay_min);
@@ -153,6 +158,23 @@ pub fn PacketSimulator(comptime Packet: type) type {
             allocator.free(self.replicas);
         }
 
+        pub fn set_on_packet(
+            self: *Self,
+            comptime Context: type,
+            context: Context,
+            comptime on_packet: fn (context: Context, packet: Packet, expiry: u64, path: Path) void,
+        ) void {
+            assert(self.on_packet_callback == null);
+            assert(self.on_packet_context == null);
+
+            self.on_packet_callback = struct {
+                fn wrapper(_context: ?*anyopaque, packet: Packet, expiry: u64, path: Path) void {
+                    on_packet(@intToPtr(Context, @ptrToInt(_context)), packet, expiry, path);
+                }
+            }.wrapper;
+            self.on_packet_context = context;
+        }
+
         fn order_packets(context: void, a: Data, b: Data) math.Order {
             _ = context;
 
@@ -173,7 +195,7 @@ pub fn PacketSimulator(comptime Packet: type) type {
             return &self.paths[self.path_index(path)];
         }
 
-        fn is_clogged(self: *Self, path: Path) bool {
+        pub fn is_clogged(self: *Self, path: Path) bool {
             return self.path_clogged_till[self.path_index(path)] > self.ticks;
         }
 
@@ -377,11 +399,17 @@ pub fn PacketSimulator(comptime Packet: type) type {
                 });
             }
 
-            queue.add(.{
+            const data = Data{
+                .submit = self.ticks,
                 .expiry = self.ticks + self.one_way_delay(),
                 .packet = packet,
                 .callback = callback,
-            }) catch unreachable;
+            };
+            queue.add(data) catch unreachable;
+
+            if (self.on_packet_callback) |on_packet_callback| {
+                on_packet_callback(self.on_packet_context, packet, data.expiry, path);
+            }
         }
     };
 }

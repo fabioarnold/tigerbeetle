@@ -521,20 +521,20 @@ pub fn Replica(
             switch (message.header.command) {
                 .ping => self.on_ping(message),
                 .pong => self.on_pong(message),
-                .request => self.on_request(message),
-                .prepare => self.on_prepare(message),
-                .prepare_ok => self.on_prepare_ok(message),
+                .request => self.on_request(message), // (client only text)
+                .prepare => self.on_prepare(message), // blue
+                .prepare_ok => self.on_prepare_ok(message), // green
                 .commit => self.on_commit(message),
-                .start_view_change => self.on_start_view_change(message),
-                .do_view_change => self.on_do_view_change(message),
-                .start_view => self.on_start_view(message),
-                .recovery => self.on_recovery(message),
-                .recovery_response => self.on_recovery_response(message),
-                .request_start_view => self.on_request_start_view(message),
-                .request_prepare => self.on_request_prepare(message),
-                .request_headers => self.on_request_headers(message),
-                .headers => self.on_headers(message),
-                .nack_prepare => self.on_nack_prepare(message),
+                .start_view_change => self.on_start_view_change(message), // orange
+                .do_view_change => self.on_do_view_change(message), // orange
+                .start_view => self.on_start_view(message), // orange
+                .recovery => self.on_recovery(message), // red
+                .recovery_response => self.on_recovery_response(message), // red
+                .request_start_view => self.on_request_start_view(message), // orange
+                .request_prepare => self.on_request_prepare(message), // orange
+                .request_headers => self.on_request_headers(message), // orange
+                .headers => self.on_headers(message), // orange
+                .nack_prepare => self.on_nack_prepare(message), // orange
                 // A replica should never handle misdirected messages intended for a client:
                 .eviction, .reply => {
                     log.warn("{}: on_message: ignoring misdirected {s} message", .{

@@ -10,7 +10,7 @@ const message_pool = @import("../message_pool.zig");
 const MessagePool = message_pool.MessagePool;
 const Message = MessagePool.Message;
 
-const Network = @import("network.zig").Network;
+pub const Network = @import("network.zig").Network;
 const NetworkOptions = @import("network.zig").NetworkOptions;
 
 pub const StateMachine = @import("state_machine.zig").StateMachine;

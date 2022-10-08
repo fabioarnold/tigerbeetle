@@ -7,11 +7,16 @@ const config = @import("config.zig");
 
 const Client = @import("test/cluster.zig").Client;
 const Cluster = @import("test/cluster.zig").Cluster;
+pub const ClusterOptions = @import("test/cluster.zig").ClusterOptions;
+pub const Network = @import("test/cluster.zig").Network;
 const Header = @import("vsr.zig").Header;
+pub const Timeout = @import("vsr.zig").Timeout;
+pub const Command = @import("vsr.zig").Command;
 pub const Replica = @import("test/cluster.zig").Replica;
 const StateChecker = @import("test/state_checker.zig").StateChecker;
 const StateMachine = @import("test/cluster.zig").StateMachine;
 const PartitionMode = @import("test/packet_simulator.zig").PartitionMode;
+pub const PacketSimulatorPath = @import("test/packet_simulator.zig").Path;
 
 /// The `log` namespace in this root file is required to implement our custom `log` function.
 const output = std.log.scoped(.state_checker);
@@ -50,7 +55,7 @@ pub const Simulator = struct {
     idle: bool = false,
     running: bool = false,
 
-    pub fn init(allocator: std.mem.Allocator, seed: u64) !Simulator {
+    pub fn init(allocator: std.mem.Allocator, seed: u64, cluster_options: ?ClusterOptions) !Simulator {
         prng = std.rand.DefaultPrng.init(seed);
         const random = prng.random();
 
@@ -59,57 +64,69 @@ pub const Simulator = struct {
             .random = random,
         };
 
-        self.replica_count = 1 + self.random.uintLessThan(u8, config.replicas_max);
-        self.client_count = 1 + self.random.uintLessThan(u8, config.clients_max);
-        self.node_count = self.replica_count + self.client_count;
+        if (cluster_options) |options| {
+            self.replica_count = options.replica_count;
+            self.client_count = options.client_count;
+            self.node_count = self.replica_count + self.client_count;
 
-        self.request_probability = 1 + self.random.uintLessThan(u8, 99);
-        self.idle_on_probability = self.random.uintLessThan(u8, 20);
-        self.idle_off_probability = 10 + self.random.uintLessThan(u8, 10);
+            self.request_probability = 1 + self.random.uintLessThan(u8, 99);
+            self.idle_on_probability = self.random.uintLessThan(u8, 20);
+            self.idle_off_probability = 10 + self.random.uintLessThan(u8, 10);
 
-        self.cluster = try Cluster.create(allocator, self.random, .{
-            .cluster = 0,
-            .replica_count = self.replica_count,
-            .client_count = self.client_count,
-            .seed = self.random.int(u64),
-            .network_options = .{
-                .packet_simulator_options = .{
-                    .replica_count = self.replica_count,
-                    .client_count = self.client_count,
-                    .node_count = self.node_count,
+            self.cluster = try Cluster.create(allocator, self.random, options);
+        } else {
+            self.replica_count = 1 + self.random.uintLessThan(u8, config.replicas_max);
+            self.client_count = 1 + self.random.uintLessThan(u8, config.clients_max);
+            self.node_count = self.replica_count + self.client_count;
 
-                    .seed = self.random.int(u64),
-                    .one_way_delay_mean = 3 + self.random.uintLessThan(u16, 10),
-                    .one_way_delay_min = self.random.uintLessThan(u16, 3),
-                    .packet_loss_probability = self.random.uintLessThan(u8, 30),
-                    .path_maximum_capacity = 2 + self.random.uintLessThan(u8, 19),
-                    .path_clog_duration_mean = self.random.uintLessThan(u16, 500),
-                    .path_clog_probability = self.random.uintLessThan(u8, 2),
-                    .packet_replay_probability = self.random.uintLessThan(u8, 50),
+            self.request_probability = 1 + self.random.uintLessThan(u8, 99);
+            self.idle_on_probability = self.random.uintLessThan(u8, 20);
+            self.idle_off_probability = 10 + self.random.uintLessThan(u8, 10);
 
-                    .partition_mode = random_partition_mode(self.random),
-                    .partition_probability = self.random.uintLessThan(u8, 3),
-                    .unpartition_probability = 1 + self.random.uintLessThan(u8, 10),
-                    .partition_stability = 100 + self.random.uintLessThan(u32, 100),
-                    .unpartition_stability = self.random.uintLessThan(u32, 20),
-                },
-            },
-            .storage_options = .{
+            self.cluster = try Cluster.create(allocator, self.random, .{
+                .cluster = 0,
+                .replica_count = self.replica_count,
+                .client_count = self.client_count,
                 .seed = self.random.int(u64),
-                .read_latency_min = self.random.uintLessThan(u16, 3),
-                .read_latency_mean = 3 + self.random.uintLessThan(u16, 10),
-                .write_latency_min = self.random.uintLessThan(u16, 3),
-                .write_latency_mean = 3 + self.random.uintLessThan(u16, 100),
-                .read_fault_probability = self.random.uintLessThan(u8, 10),
-                .write_fault_probability = self.random.uintLessThan(u8, 10),
-            },
-            .health_options = .{
-                .crash_probability = 0.0001,
-                .crash_stability = self.random.uintLessThan(u32, 1_000),
-                .restart_probability = 0.01,
-                .restart_stability = self.random.uintLessThan(u32, 1_000),
-            },
-        });
+                .network_options = .{
+                    .packet_simulator_options = .{
+                        .replica_count = self.replica_count,
+                        .client_count = self.client_count,
+                        .node_count = self.node_count,
+
+                        .seed = self.random.int(u64),
+                        .one_way_delay_mean = 3 + self.random.uintLessThan(u16, 10),
+                        .one_way_delay_min = self.random.uintLessThan(u16, 3),
+                        .packet_loss_probability = self.random.uintLessThan(u8, 30),
+                        .path_maximum_capacity = 2 + self.random.uintLessThan(u8, 19),
+                        .path_clog_duration_mean = self.random.uintLessThan(u16, 500),
+                        .path_clog_probability = self.random.uintLessThan(u8, 2),
+                        .packet_replay_probability = self.random.uintLessThan(u8, 50),
+
+                        .partition_mode = random_partition_mode(self.random),
+                        .partition_probability = self.random.uintLessThan(u8, 3),
+                        .unpartition_probability = 1 + self.random.uintLessThan(u8, 10),
+                        .partition_stability = 100 + self.random.uintLessThan(u32, 100),
+                        .unpartition_stability = self.random.uintLessThan(u32, 20),
+                    },
+                },
+                .storage_options = .{
+                    .seed = self.random.int(u64),
+                    .read_latency_min = self.random.uintLessThan(u16, 3),
+                    .read_latency_mean = 3 + self.random.uintLessThan(u16, 10),
+                    .write_latency_min = self.random.uintLessThan(u16, 3),
+                    .write_latency_mean = 3 + self.random.uintLessThan(u16, 100),
+                    .read_fault_probability = self.random.uintLessThan(u8, 10),
+                    .write_fault_probability = self.random.uintLessThan(u8, 10),
+                },
+                .health_options = .{
+                    .crash_probability = 0.0001,
+                    .crash_stability = self.random.uintLessThan(u32, 1_000),
+                    .restart_probability = 0.01,
+                    .restart_stability = self.random.uintLessThan(u32, 1_000),
+                },
+            });
+        }
         cluster_ptr = self.cluster;
         errdefer self.cluster.destroy();
 
