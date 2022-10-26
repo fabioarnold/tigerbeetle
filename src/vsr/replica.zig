@@ -3173,7 +3173,7 @@ pub fn Replica(
         }
 
         /// Returns the index into the configuration of the leader for a given view.
-        fn leader_index(self: *Self, view: u32) u8 {
+        pub fn leader_index(self: *Self, view: u32) u8 {
             return @intCast(u8, @mod(view, self.replica_count));
         }
 
