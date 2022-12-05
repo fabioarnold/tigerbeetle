@@ -116,7 +116,7 @@ pub const Storage = struct {
         assert(options.write_latency_mean >= options.write_latency_min);
         assert(options.read_latency_mean >= options.read_latency_min);
 
-        const memory = try allocator.allocAdvanced(u8, config.sector_size, @intCast(usize, size), .exact);
+        const memory = try allocator.alignedAlloc(u8, config.sector_size, @intCast(usize, size));
         errdefer allocator.free(memory);
         // TODO: random data
         mem.set(u8, memory, 0);

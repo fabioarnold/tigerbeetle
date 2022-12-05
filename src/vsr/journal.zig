@@ -217,20 +217,18 @@ pub fn Journal(comptime Replica: type, comptime Storage: type) type {
         pub fn init(allocator: Allocator, storage: *Storage, replica: u8) !Self {
             assert(write_ahead_log_zone_size <= storage.size);
 
-            var headers = try allocator.allocAdvanced(
+            var headers = try allocator.alignedAlloc(
                 Header,
                 config.sector_size,
                 slot_count,
-                .exact,
             );
             errdefer allocator.free(headers);
             for (headers) |*header| header.* = undefined;
 
-            var headers_redundant = try allocator.allocAdvanced(
+            var headers_redundant = try allocator.alignedAlloc(
                 Header,
                 config.sector_size,
                 slot_count,
-                .exact,
             );
             errdefer allocator.free(headers_redundant);
             for (headers_redundant) |*header| header.* = undefined;
@@ -251,11 +249,10 @@ pub fn Journal(comptime Replica: type, comptime Storage: type) type {
             errdefer allocator.free(prepare_inhabited);
             std.mem.set(bool, prepare_inhabited, false);
 
-            const headers_iops = (try allocator.allocAdvanced(
+            const headers_iops = (try allocator.alignedAlloc(
                 [config.sector_size]u8,
                 config.sector_size,
                 config.io_depth_write,
-                .exact,
             ))[0..config.io_depth_write];
             errdefer allocator.free(headers_iops);
 
