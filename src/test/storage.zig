@@ -100,6 +100,8 @@ pub const Storage = struct {
     /// Whether to enable faults (when false, this supersedes `faulty_areas`).
     /// This is used to disable faults during the replica's first startup.
     faulty: bool = true,
+    /// Gets incremented whenever a fault event occurs.
+    fault_counter: u64 = 0,
 
     reads: std.PriorityQueue(*Storage.Read, void, Storage.Read.less_than),
     writes: std.PriorityQueue(*Storage.Write, void, Storage.Write.less_than),
@@ -434,5 +436,7 @@ pub const Storage = struct {
             storage.replica_index,
         });
         storage.faults.set(faulty_sector);
+
+        storage.fault_counter += 1;
     }
 };
