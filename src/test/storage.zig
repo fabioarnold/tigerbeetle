@@ -209,6 +209,7 @@ pub const Storage = struct {
 
         if (storage.x_in_100(storage.options.read_fault_probability)) {
             storage.fault_sectors(read.offset, read.buffer.len);
+            storage.fault_counter += 1;
         }
 
         if (storage.faulty) {
@@ -266,6 +267,7 @@ pub const Storage = struct {
 
         if (storage.x_in_100(storage.options.write_fault_probability)) {
             storage.fault_sectors(write.offset, write.buffer.len);
+            storage.fault_counter += 1;
         }
         write.callback(write);
     }
@@ -436,7 +438,5 @@ pub const Storage = struct {
             storage.replica_index,
         });
         storage.faults.set(faulty_sector);
-
-        storage.fault_counter += 1;
     }
 };
