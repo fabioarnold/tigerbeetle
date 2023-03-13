@@ -5,7 +5,7 @@ const mem = std.mem;
 
 const config = @import("config.zig");
 
-const Client = @import("test/cluster.zig").Client;
+pub const Client = @import("test/cluster.zig").Client;
 const Cluster = @import("test/cluster.zig").Cluster;
 pub const ClusterOptions = @import("test/cluster.zig").ClusterOptions;
 pub const Network = @import("test/cluster.zig").Network;
