@@ -154,6 +154,7 @@ pub const Storage = struct {
     pub fn reset(storage: *Storage) void {
         while (storage.writes.peek()) |write| {
             _ = storage.writes.remove();
+            if (!storage.x_in_100(storage.options.write_fault_probability)) continue;
             storage.fault_sectors(write.offset, write.buffer.len);
         }
 
