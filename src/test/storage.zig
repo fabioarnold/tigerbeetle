@@ -427,7 +427,7 @@ pub const Storage = struct {
         };
     }
 
-    fn fault_sectors(storage: *Storage, offset: u64, size: u64) void {
+    pub fn fault_sectors(storage: *Storage, offset: u64, size: u64) void {
         const faulty = storage.faulty_sectors(offset, size) orelse return;
         // Randomly corrupt one of the faulty sectors the operation targeted.
         // TODO: inject more realistic and varied storage faults as described above.
